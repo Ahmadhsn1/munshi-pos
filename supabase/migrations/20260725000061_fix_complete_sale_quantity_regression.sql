@@ -1,0 +1,136 @@
+-- Regression fix: the Phase 4 cost-snapshot patch (20260725000058) was authored from the
+-- ORIGINAL complete_sale migration text and accidentally reverted the "v_line.quantity" fix from
+-- 20260725000045_fix_complete_sale_quantity_bug.sql, reintroducing "column quantity does not
+-- exist" on every checkout. Caught immediately by tests/rls/complete-sale.test.ts. Restores the
+-- qualified reference while keeping the avg_cost_paisa stamp this patch was actually meant to add.
+create or replace function public.complete_sale(
+  p_tenant_id uuid,
+  p_sale_id uuid,
+  p_bill_discount_paisa integer,
+  p_round_off_paisa integer,
+  p_payments jsonb
+)
+returns jsonb
+language plpgsql
+set search_path = ''
+as $$
+declare
+  v_sale record;
+  v_line record;
+  v_subtotal integer := 0;
+  v_line_discount_total integer := 0;
+  v_tax_total integer := 0;
+  v_total integer;
+  v_payment_sum integer := 0;
+  v_payment jsonb;
+  v_has_noncash boolean := false;
+  v_current_stock integer;
+  v_needed_stock integer;
+  v_avg_cost_paisa integer;
+  v_invoice_seq integer;
+  v_invoice_number text;
+begin
+  select * into v_sale from public.sales where id = p_sale_id and tenant_id = p_tenant_id for update;
+
+  if not found then
+    raise exception 'Sale not found';
+  end if;
+
+  if v_sale.status <> 'open' then
+    raise exception 'Sale is not open (status: %)', v_sale.status;
+  end if;
+
+  if not exists (select 1 from public.shifts where id = v_sale.shift_id and status = 'open') then
+    raise exception 'Shift is not open';
+  end if;
+
+  select
+    coalesce(sum(quantity * unit_price_paisa), 0),
+    coalesce(sum(line_discount_paisa), 0),
+    coalesce(sum(tax_paisa), 0)
+  into v_subtotal, v_line_discount_total, v_tax_total
+  from public.sale_line_items
+  where sale_id = p_sale_id;
+
+  if v_subtotal = 0 then
+    raise exception 'Cannot complete a sale with no line items';
+  end if;
+
+  if p_bill_discount_paisa < 0 then
+    raise exception 'Bill discount cannot be negative';
+  end if;
+
+  if abs(p_round_off_paisa) > 500 then
+    raise exception 'Round-off out of the allowed range';
+  end if;
+
+  v_total := v_subtotal - v_line_discount_total - p_bill_discount_paisa + v_tax_total + p_round_off_paisa;
+
+  if v_total < 0 then
+    raise exception 'Computed total is negative -- check discounts';
+  end if;
+
+  for v_payment in select * from jsonb_array_elements(p_payments)
+  loop
+    v_payment_sum := v_payment_sum + (v_payment ->> 'amount_paisa')::integer;
+    if (v_payment ->> 'payment_mode') <> 'cash' then
+      v_has_noncash := true;
+    end if;
+  end loop;
+
+  if v_payment_sum <> v_total then
+    raise exception 'Payments (%) do not sum to the total (%)', v_payment_sum, v_total;
+  end if;
+
+  if p_round_off_paisa <> 0 and v_has_noncash then
+    raise exception 'Round-off can only be applied to a fully-cash sale';
+  end if;
+
+  for v_line in select * from public.sale_line_items where sale_id = p_sale_id
+  loop
+    select current_stock, v_line.quantity * sale_to_stock_factor, avg_cost_paisa
+      into v_current_stock, v_needed_stock, v_avg_cost_paisa
+      from public.products
+      where id = v_line.product_id
+      for update;
+
+    if v_current_stock < v_needed_stock then
+      raise exception 'Insufficient stock for product %: have %, need %',
+        v_line.product_id, v_current_stock, v_needed_stock;
+    end if;
+
+    insert into public.stock_ledger (tenant_id, product_id, movement_type, quantity_delta, unit_cost_paisa, sale_id, created_by)
+    values (p_tenant_id, v_line.product_id, 'sale', -v_needed_stock, v_avg_cost_paisa, p_sale_id, v_sale.cashier_user_id);
+  end loop;
+
+  insert into public.sale_number_counters (tenant_id, next_number)
+  values (p_tenant_id, 2)
+  on conflict (tenant_id) do update set next_number = sale_number_counters.next_number + 1
+  returning next_number - 1 into v_invoice_seq;
+
+  v_invoice_number := to_char(now(), 'YYYYMMDD') || '-' || lpad(v_invoice_seq::text, 5, '0');
+
+  for v_payment in select * from jsonb_array_elements(p_payments)
+  loop
+    insert into public.sale_payments (tenant_id, sale_id, payment_mode, amount_paisa, reference_text)
+    values (
+      p_tenant_id, p_sale_id, v_payment ->> 'payment_mode',
+      (v_payment ->> 'amount_paisa')::integer, nullif(v_payment ->> 'reference_text', '')
+    );
+  end loop;
+
+  update public.sales set
+    status = 'completed',
+    invoice_number = v_invoice_number,
+    subtotal_paisa = v_subtotal,
+    line_discount_paisa = v_line_discount_total,
+    bill_discount_paisa = p_bill_discount_paisa,
+    tax_paisa = v_tax_total,
+    round_off_paisa = p_round_off_paisa,
+    total_paisa = v_total,
+    completed_at = now()
+  where id = p_sale_id;
+
+  return jsonb_build_object('saleId', p_sale_id, 'invoiceNumber', v_invoice_number, 'totalPaisa', v_total);
+end;
+$$;
