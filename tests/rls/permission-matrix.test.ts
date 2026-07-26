@@ -14,8 +14,17 @@ const EXPECTED: Record<string, string[]> = {
     "products.view", "products.manage", "inventory.view", "inventory.adjust",
     "sales.discount", "sales.return", "sales.void", "shifts.open_close", "shifts.view",
     "customers.manage", "suppliers.manage", "purchases.manage",
+    // Phase 6. audit.view is intentionally absent -- see MANAGER_MUST_NOT_HAVE below.
+    "reports.view", "expenses.manage",
   ],
 };
+
+// The audit log exists to let an OWNER police their own staff. A manager can void sales, apply
+// discounts and adjust stock, so they are inside the trust boundary being policed -- if they could
+// read the log they could confirm exactly what was recorded about their own actions. This is the
+// first permission in the app that a manager is deliberately denied, so it gets its own assertion
+// rather than relying on the exact-set check above to catch a well-meaning future grant.
+const MANAGER_MUST_NOT_HAVE = ["audit.view"];
 
 // Permissions a cashier must NEVER hold -- anything that moves money or stock outside the normal
 // sale flow, or that hides/reveals cost. Spelled out explicitly (rather than derived) so adding a
@@ -25,6 +34,10 @@ const CASHIER_MUST_NOT_HAVE = [
   "inventory.adjust", "products.manage", "cost_price.view",
   "customers.manage", "suppliers.manage", "purchases.manage",
   "users.manage", "settings.manage", "shifts.view",
+  // Phase 6: shop-wide margin/valuation/cash numbers and the audit trail are all owner/manager
+  // territory. reports.view leaking to a cashier would expose exactly the cost and margin figures
+  // cost_price.view exists to hide.
+  "reports.view", "expenses.manage", "audit.view",
 ];
 
 async function permissionsFor(admin: ReturnType<typeof createAdminClient>, roleKey: string) {
@@ -60,6 +73,13 @@ describe("seeded role -> permission matrix", () => {
   it("manager holds exactly its intended permission set", async () => {
     const actual = await permissionsFor(admin, "manager");
     expect(actual).toEqual([...EXPECTED.manager].sort());
+  });
+
+  it("manager cannot read the audit log that polices them", async () => {
+    const actual = await permissionsFor(admin, "manager");
+    for (const forbidden of MANAGER_MUST_NOT_HAVE) {
+      expect(actual, `manager must not have ${forbidden}`).not.toContain(forbidden);
+    }
   });
 
   it("owner holds every permission in the catalog", async () => {

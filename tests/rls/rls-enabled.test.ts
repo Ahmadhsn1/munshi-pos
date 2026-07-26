@@ -30,6 +30,13 @@ const TENANT_SCOPED_TABLES = [
   "purchase_return_line_items",
   "purchase_payments",
   "customer_payments",
+  // Phase 6. audit_log is in this list even though it deliberately has NO policy for
+  // `authenticated` -- RLS being ENABLED is precisely the mechanism that makes a policy-less table
+  // deny-by-default instead of world-readable, so this assertion is load-bearing for it rather
+  // than incidental. See 20260726100006_audit_log.sql.
+  "expense_categories",
+  "expenses",
+  "audit_log",
 ];
 
 describe("row level security is enabled on every tenant-scoped table", () => {
