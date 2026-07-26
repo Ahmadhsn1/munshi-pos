@@ -82,6 +82,13 @@ export default async function StaffPage() {
                   </TableCell>
                 </TableRow>
               ))}
+              {(staff ?? []).length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-muted-foreground text-center">
+                    No staff accounts yet.
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>
