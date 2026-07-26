@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getActingUserContext } from "@/lib/permissions";
 import { DailySummaryCard } from "./daily-summary-card";
@@ -50,6 +51,26 @@ export default async function DashboardPage() {
       </div>
 
       {context.permissions.has("reports.view") && <DailySummaryCard />}
+
+      {context.roleKey === "owner" && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Backup</CardTitle>
+            <CardDescription>
+              Download a complete copy of your shop&apos;s data -- every product, sale, purchase,
+              customer, and ledger entry -- as one file. Owner-only: this is the single most
+              complete export the app can produce.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button
+              variant="outline"
+              nativeButton={false}
+              render={<a href="/api/backup/export">Export all my data</a>}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       {context.permissions.has("users.manage") ? (
         <Card>
