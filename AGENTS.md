@@ -79,6 +79,24 @@ is complete and tested.
   cashier") cannot be enforced via RLS and must be re-checked server-side, per request, by looking
   up the counter-session's `userId` fresh against the DB -- never trust the cookie's embedded
   `roleKey` as authoritative, it can go stale mid-shift if an owner changes the cashier's role.
+- **`getActingUserContext()` is the ONLY correct source for an authorization decision** -- in
+  Server Components and Route Handlers alike, back-office screens included, not just the POS.
+  `getSessionUserContext()` answers "whose login is this device on" and is used by exactly one
+  file (`/api/auth/counter-login`, which can't ask who's at the counter without being circular).
+  This was a real Phase 6 finding, not a style preference: because counter-login layers onto an
+  owner's still-live session, back-office code that authorized against the session let a cashier
+  PIN'd in at the counter act with **owner** permissions -- create staff accounts, adjust stock,
+  pay suppliers, read every cost price -- and the nav bar linked them straight there. The role
+  model only held on the single screen the cashier was supposed to be confined to.
+  `tests/unit/authorization-identity.test.ts` fails the build if a new file authorizes from the
+  session identity, or if a route gates on `permissions.has()` without resolving the acting user.
+- **Hiding a sensitive field in JSX is not enforcement.** A Server Component's fetched data reaches
+  the browser in the RSC payload whether or not the JSX renders it, so `{canSee && <Cell/>}` alone
+  leaks. Either omit the column from the `select()` (preferred -- for Route Handlers, where the
+  response *is* the browser boundary, the data then never leaves Postgres) or null it out when
+  projecting the row. Note that a `select()` string built from a ternary defeats supabase-js's
+  literal-type inference and collapses the row type to `any`; in a Server Component prefer
+  projection-time stripping to keep types intact.
 - Route Handlers that use `SUPABASE_SERVICE_ROLE_KEY` (`lib/supabase/admin.ts`) or Node's
   `crypto` (`lib/pin.ts`, `lib/counter-session.ts`) must declare
   `export const runtime = "nodejs"` -- these are incompatible with the Edge runtime.
