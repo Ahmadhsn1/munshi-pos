@@ -52,6 +52,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       amount_paisa: p.amountPaisa,
       reference_text: p.referenceText || null,
     })),
+    // A khata payment that would breach the customer's credit limit or hit a blacklisted
+    // customer is hard-blocked unless the acting identity has customers.manage -- a cashier
+    // (PIN counter-login, resolved via getActingUserContext) never has this permission, so this
+    // always evaluates false for them; owner/manager checkouts proceed with a khataWarning flag.
+    p_override_khata_limit: context.permissions.has("customers.manage"),
   });
 
   if (error) {

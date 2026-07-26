@@ -1,0 +1,12 @@
+-- Audit finding: set_updated_at() was still EXECUTE-able by anon AND authenticated, despite the
+-- Phase 1 migration 20260724234431_fix_set_updated_at_public_grant.sql. That migration revoked
+-- only from PUBLIC -- but Supabase's ALTER DEFAULT PRIVILEGES grants anon/authenticated their own
+-- SEPARATE grants on every new public-schema function, which a PUBLIC revoke does not touch.
+-- This is the exact gotcha AGENTS.md documents ("needs explicit REVOKE ... FROM public AND FROM
+-- anon and/or FROM authenticated, not just one of them"), which the Phase 1 fix itself only
+-- half-applied.
+--
+-- Practical severity is low (calling a trigger function directly raises "trigger functions can
+-- only be called as triggers"), but it's a real, unintended exposed-API surface on a function
+-- attached to 7 tables, and it contradicts this project's own stated security rule.
+revoke execute on function public.set_updated_at() from anon, authenticated;

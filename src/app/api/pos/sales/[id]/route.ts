@@ -20,7 +20,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const { data: sale } = await admin
     .from("sales")
     .select(
-      "id, status, invoice_number, customer_id, held_label, shift_id, subtotal_paisa, line_discount_paisa, bill_discount_paisa, tax_paisa, round_off_paisa, total_paisa, completed_at",
+      "id, status, invoice_number, customer_id, held_label, shift_id, subtotal_paisa, line_discount_paisa, bill_discount_paisa, tax_paisa, round_off_paisa, total_paisa, completed_at, customers:customer_id(id, name)",
     )
     .eq("id", id)
     .eq("tenant_id", context.tenantId)
@@ -32,7 +32,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
   const { data: lines } = await admin
     .from("sale_line_items")
-    .select("id, product_id, quantity, unit_price_paisa, line_discount_paisa, tax_paisa, line_total_paisa, products:product_id(name_en, name_ur)")
+    .select(
+      "id, product_id, quantity, unit_price_paisa, line_discount_paisa, tax_paisa, line_total_paisa, products:product_id(name_en, name_ur, sale_unit:sale_unit_id(name))",
+    )
     .eq("sale_id", id);
 
   return NextResponse.json({ sale, lines: lines ?? [] });
@@ -57,6 +59,15 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       { error: parsed.error.issues[0]?.message ?? "Invalid input" },
       { status: 400 },
     );
+  }
+
+  // Same server-side line-discount gate as the draft-create route -- see the comment there for
+  // why the UI's canDiscount prop and checkout's bill-discount check together are not enough.
+  if (
+    parsed.data.lines.some((line) => line.lineDiscountPaisa > 0) &&
+    !context.permissions.has("sales.discount")
+  ) {
+    return NextResponse.json({ error: "You are not allowed to apply a discount" }, { status: 403 });
   }
 
   const admin = createAdminClient();

@@ -322,3 +322,30 @@ export const purchasePaymentSchema = z.object({
 });
 
 export type PurchasePaymentInput = z.infer<typeof purchasePaymentSchema>;
+
+// --- Phase 5: customer & khata ---
+
+export const customerCreateSchema = z.object({
+  name: z.string().trim().min(1, "Name is required").max(100),
+  phone: z.string().trim().max(20).optional().or(z.literal("")),
+  creditLimitPaisa: z.number().int().min(0).optional().nullable(),
+  priceTier: z.string().trim().max(50).optional().or(z.literal("")),
+  isBlacklisted: z.boolean().optional(),
+});
+
+export type CustomerCreateInput = z.infer<typeof customerCreateSchema>;
+
+export const customerUpdateSchema = customerCreateSchema.partial().extend({
+  isActive: z.boolean().optional(),
+});
+
+export type CustomerUpdateInput = z.infer<typeof customerUpdateSchema>;
+
+export const customerPaymentSchema = z.object({
+  paymentMode: z.enum(["cash", "bank_transfer", "cheque", "jazzcash", "easypaisa"]),
+  amountPaisa: z.number().int().min(1),
+  referenceText: z.string().trim().max(100).optional().or(z.literal("")),
+  paidAt: z.string().trim().optional().or(z.literal("")),
+});
+
+export type CustomerPaymentInput = z.infer<typeof customerPaymentSchema>;

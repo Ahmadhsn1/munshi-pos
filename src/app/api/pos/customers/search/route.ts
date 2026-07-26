@@ -22,7 +22,7 @@ export async function GET(request: Request) {
 
   const { data: customers } = await supabase
     .from("customers")
-    .select("id, name, phone")
+    .select("id, name, phone, is_blacklisted")
     .eq("is_active", true)
     .or(`name.ilike.%${q}%,phone.ilike.%${q}%`)
     .limit(10);

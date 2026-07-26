@@ -143,6 +143,9 @@ export function CheckoutDialog({
         tenantName,
       });
       toast.success("Sale completed");
+      if (result.khataWarning) {
+        toast.warning("This sale put the customer over their khata credit limit or blacklist -- allowed by manager override");
+      }
       onComplete();
     } finally {
       setLoading(false);

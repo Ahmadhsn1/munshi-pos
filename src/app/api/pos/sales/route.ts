@@ -25,6 +25,20 @@ export async function POST(request: Request) {
     );
   }
 
+  // LINE discounts need the same server-side permission gate the BILL discount already has at
+  // checkout. The POS UI hides the discount column from a cashier (canDiscount), but that's
+  // cosmetic -- without this check a cashier (sales.create, deliberately NOT sales.discount per
+  // seed.sql) could POST lineDiscountPaisa directly and grant themselves an unlimited discount,
+  // which complete_sale would then faithfully honor since it recomputes totals FROM the stored
+  // line items. Checkout's existing billDiscountPaisa check can't catch it -- the discount lives
+  // on the line, not the bill.
+  if (
+    parsed.data.lines.some((line) => line.lineDiscountPaisa > 0) &&
+    !context.permissions.has("sales.discount")
+  ) {
+    return NextResponse.json({ error: "You are not allowed to apply a discount" }, { status: 403 });
+  }
+
   const admin = createAdminClient();
 
   const { data: shift } = await admin

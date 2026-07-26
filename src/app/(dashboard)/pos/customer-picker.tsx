@@ -18,7 +18,9 @@ export function CustomerPicker({
   onSelect: (customer: Customer | null) => void;
 }) {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<{ id: string; name: string; phone: string | null }[]>([]);
+  const [results, setResults] = useState<
+    { id: string; name: string; phone: string | null; is_blacklisted: boolean }[]
+  >([]);
   const [adding, setAdding] = useState(false);
   const [newPhone, setNewPhone] = useState("");
 
@@ -97,6 +99,9 @@ export function CustomerPicker({
               }}
             >
               {c.name} {c.phone && <span className="text-muted-foreground">({c.phone})</span>}
+              {c.is_blacklisted && (
+                <span className="text-destructive ml-2 text-xs font-medium">Khata blocked</span>
+              )}
             </button>
           ))}
         </div>

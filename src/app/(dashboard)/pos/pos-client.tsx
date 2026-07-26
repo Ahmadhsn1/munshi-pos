@@ -222,14 +222,18 @@ export function PosClient({
       quantity: number;
       unit_price_paisa: number;
       line_discount_paisa: number;
-      products: { name_en: string; name_ur: string | null } | null;
+      products: {
+        name_en: string;
+        name_ur: string | null;
+        sale_unit: { name: string } | null;
+      } | null;
     }
 
     const recalledLines: CartLine[] = (body.lines as RecalledLine[]).map((l) => ({
       productId: l.product_id,
       nameEn: l.products?.name_en ?? "Product",
       nameUr: l.products?.name_ur ?? null,
-      unitName: "",
+      unitName: l.products?.sale_unit?.name ?? "",
       unitPricePaisa: l.unit_price_paisa,
       taxRateBps: 0,
       quantity: l.quantity,
@@ -239,6 +243,12 @@ export function PosClient({
 
     setLines(recalledLines);
     setSaleId(recalledSaleId);
+    // Without this, the recalled sale's customer_id was silently getting overwritten to null
+    // the next time the draft was saved (handleOpenCheckout/handleHold both PATCH with
+    // customerId: customer?.id ?? null) -- caught during Phase 5 manual testing when a recalled
+    // khata sale lost its customer and complete_sale rejected the khata payment entirely.
+    const recalledCustomer = body.sale.customers as { id: string; name: string } | null;
+    setCustomer(recalledCustomer ? { id: recalledCustomer.id, name: recalledCustomer.name } : null);
     toast.success("Bill recalled");
   }
 
@@ -312,13 +322,21 @@ export function PosClient({
                 <TableRow key={line.productId}>
                   <TableCell>{line.nameEn}</TableCell>
                   <TableCell>
-                    <Input
-                      type="number"
-                      min={1}
-                      className="w-16"
-                      value={line.quantity}
-                      onChange={(e) => updateQuantity(line.productId, Number(e.target.value))}
-                    />
+                    {/* The unit label matters most for loose goods sold by weight (daal, aata,
+                        chawal) -- a bare "500" in this box is ambiguous, "500 g" is not. It was
+                        already being resolved into CartLine.unitName but never rendered. */}
+                    <div className="flex items-center gap-1.5">
+                      <Input
+                        type="number"
+                        min={1}
+                        className="w-16"
+                        value={line.quantity}
+                        onChange={(e) => updateQuantity(line.productId, Number(e.target.value))}
+                      />
+                      {line.unitName && (
+                        <span className="text-muted-foreground text-xs">{line.unitName}</span>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>{formatPKR(line.unitPricePaisa)}</TableCell>
                   {canDiscount && (

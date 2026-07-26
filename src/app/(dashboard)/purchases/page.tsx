@@ -49,7 +49,7 @@ export default async function PurchasesPage() {
           <h1 className="text-2xl font-semibold">Purchases</h1>
           <p className="text-muted-foreground">Purchase invoices, goods receipts, and returns.</p>
         </div>
-        <Button render={<Link href="/purchases/new">New purchase</Link>} />
+        <Button nativeButton={false} render={<Link href="/purchases/new">New purchase</Link>} />
       </div>
 
       <Card>

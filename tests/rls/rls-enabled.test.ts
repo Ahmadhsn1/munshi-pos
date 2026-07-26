@@ -29,6 +29,7 @@ const TENANT_SCOPED_TABLES = [
   "purchase_returns",
   "purchase_return_line_items",
   "purchase_payments",
+  "customer_payments",
 ];
 
 describe("row level security is enabled on every tenant-scoped table", () => {
