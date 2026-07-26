@@ -349,3 +349,53 @@ export const customerPaymentSchema = z.object({
 });
 
 export type CustomerPaymentInput = z.infer<typeof customerPaymentSchema>;
+
+// --- Phase 6: expenses, cash book & reports ---
+
+export const expenseCategoryCreateSchema = z.object({
+  name: z.string().trim().min(1, "Name is required").max(60),
+});
+
+export type ExpenseCategoryCreateInput = z.infer<typeof expenseCategoryCreateSchema>;
+
+export const expenseCreateSchema = z.object({
+  categoryId: z.string().uuid("Pick a category"),
+  amountPaisa: z.number().int().min(1, "Amount must be more than zero"),
+  paymentMode: z.enum(["cash", "bank_transfer", "cheque", "jazzcash", "easypaisa"]),
+  note: z.string().trim().max(300).optional().or(z.literal("")),
+  expenseDate: z.string().trim().optional().or(z.literal("")),
+  /**
+   * "Did this money come out of the counter drawer?" -- asked explicitly rather than inferred from
+   * paymentMode, because cash paid from the office safe or the owner's own pocket is still a cash
+   * expense but must NOT move the cashier's expected drawer total. Only honoured for cash; the
+   * route drops it otherwise and a DB check constraint enforces the same pairing independently.
+   */
+  paidFromCounterCash: z.boolean().optional(),
+});
+
+export type ExpenseCreateInput = z.infer<typeof expenseCreateSchema>;
+
+// Absolute rule 4: financial records are never hard-deleted, so voiding demands a reason. Required
+// and non-empty on purpose -- an audit trail of blank reasons is no audit trail.
+export const expenseVoidSchema = z.object({
+  voidReason: z.string().trim().min(1, "A reason is required").max(300),
+});
+
+export type ExpenseVoidInput = z.infer<typeof expenseVoidSchema>;
+
+/**
+ * Report date range. Both ends are inclusive business dates (Asia/Karachi), matching
+ * public.business_date() on the SQL side -- never the server's UTC date, which would file the first
+ * five hours of every Pakistani day under yesterday (see migration 20260726000007).
+ */
+export const reportRangeSchema = z
+  .object({
+    from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid from date"),
+    to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid to date"),
+  })
+  .refine((r) => r.from <= r.to, {
+    message: "The start date must not be after the end date",
+    path: ["from"],
+  });
+
+export type ReportRangeInput = z.infer<typeof reportRangeSchema>;

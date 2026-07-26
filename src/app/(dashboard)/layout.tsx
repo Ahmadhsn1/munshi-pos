@@ -22,6 +22,8 @@ const NAV_ITEMS: { href: string; label: string; permission: string | null }[] = 
   { href: "/purchases", label: "Purchases", permission: "purchases.manage" },
   { href: "/suppliers", label: "Suppliers", permission: "suppliers.manage" },
   { href: "/customers", label: "Customers", permission: "customers.manage" },
+  { href: "/expenses", label: "Expenses", permission: "expenses.manage" },
+  { href: "/reports/cash-book", label: "Cash book", permission: "reports.view" },
   { href: "/staff", label: "Staff", permission: "users.manage" },
   { href: "/counter", label: "Counter", permission: null },
 ];
