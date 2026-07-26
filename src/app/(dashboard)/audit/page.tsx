@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getActingUserContext } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { ExportCsvLink } from "../reports/export-csv-link";
 
 interface AuditRow {
   id: string;
@@ -71,11 +72,16 @@ export default async function AuditLogPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Audit log</h1>
-        <p className="text-muted-foreground">
-          Every money- and stock-affecting action, in order. Read-only, owner-only, never edited.
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold">Audit log</h1>
+          <p className="text-muted-foreground">
+            Every money- and stock-affecting action, in order. Read-only, owner-only, never edited.
+          </p>
+        </div>
+        <ExportCsvLink
+          href={`/api/audit/export${params.action ? `?action=${params.action}` : ""}`}
+        />
       </div>
 
       <div className="flex flex-wrap gap-2 text-sm">

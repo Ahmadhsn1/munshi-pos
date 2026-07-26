@@ -7,6 +7,7 @@ import { formatPKR } from "@/lib/money";
 import { businessToday, defaultReportRange, resolveReportRange } from "@/lib/reports";
 import { ReportRangePicker } from "../report-range-picker";
 import { ReportNav } from "../report-nav";
+import { ExportCsvLink } from "../export-csv-link";
 
 interface CashierRow {
   cashier_user_id: string;
@@ -62,7 +63,10 @@ export default async function CashierReportPage({
         </p>
       </div>
 
-      <ReportRangePicker basePath="/reports/cashiers" from={range.from} to={range.to} />
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <ReportRangePicker basePath="/reports/cashiers" from={range.from} to={range.to} />
+        <ExportCsvLink href={`/api/reports/cashiers/export?from=${range.from}&to=${range.to}`} />
+      </div>
 
       <Card>
         <CardHeader>

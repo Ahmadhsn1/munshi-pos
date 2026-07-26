@@ -7,6 +7,7 @@ import { formatPKR } from "@/lib/money";
 import { businessToday, defaultReportRange, formatBps, marginBps, resolveReportRange } from "@/lib/reports";
 import { ReportRangePicker } from "../report-range-picker";
 import { ReportNav } from "../report-nav";
+import { ExportCsvLink } from "../export-csv-link";
 
 interface SalesSummaryRow {
   business_day: string;
@@ -75,7 +76,10 @@ export default async function SalesReportPage({
         <p className="text-muted-foreground">Revenue, discounts and gross margin by business day.</p>
       </div>
 
-      <ReportRangePicker basePath="/reports/sales" from={range.from} to={range.to} />
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <ReportRangePicker basePath="/reports/sales" from={range.from} to={range.to} />
+        <ExportCsvLink href={`/api/reports/sales/export?from=${range.from}&to=${range.to}`} />
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>

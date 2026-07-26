@@ -7,6 +7,7 @@ import { formatPKR } from "@/lib/money";
 import { businessToday, defaultReportRange, formatBps, marginBps, resolveReportRange } from "@/lib/reports";
 import { ReportRangePicker } from "../report-range-picker";
 import { ReportNav } from "../report-nav";
+import { ExportCsvLink } from "../export-csv-link";
 
 interface ProductSalesRow {
   product_id: string;
@@ -99,18 +100,24 @@ export default async function ProductSalesReportPage({
 
       <div className="flex flex-wrap items-center justify-between gap-4">
         <ReportRangePicker basePath="/reports/products" from={range.from} to={range.to} />
-        <div className="flex gap-2 text-sm">
-          {(["product", "category", "brand"] as const).map((g) => (
-            <a
-              key={g}
-              href={`/reports/products?from=${range.from}&to=${range.to}&group=${g}`}
-              className={`rounded-md border px-3 py-1.5 capitalize ${
-                groupBy === g ? "bg-foreground text-background" : "hover:bg-muted"
-              }`}
-            >
-              {g}
-            </a>
-          ))}
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex gap-2 text-sm">
+            {(["product", "category", "brand"] as const).map((g) => (
+              <a
+                key={g}
+                href={`/reports/products?from=${range.from}&to=${range.to}&group=${g}`}
+                className={`rounded-md border px-3 py-1.5 capitalize ${
+                  groupBy === g ? "bg-foreground text-background" : "hover:bg-muted"
+                }`}
+              >
+                {g}
+              </a>
+            ))}
+          </div>
+          {/* Always exports per-product detail regardless of the group-by view above -- a
+              shopkeeper opening this in Excel can pivot it themselves, and per-product is strictly
+              more useful in a spreadsheet than a pre-aggregated category/brand rollup would be. */}
+          <ExportCsvLink href={`/api/reports/products/export?from=${range.from}&to=${range.to}`} />
         </div>
       </div>
 

@@ -1,18 +1,13 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getActingUserContext } from "@/lib/permissions";
 import { formatPKR } from "@/lib/money";
 import { createClient } from "@/lib/supabase/server";
-
-interface LedgerEntry {
-  date: string;
-  type: "invoice" | "payment";
-  description: string;
-  amountPaisa: number; // positive = increases payable, negative = decreases
-}
+import { buildSupplierLedger } from "@/lib/supplier-ledger";
 
 export default async function SupplierDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -44,6 +39,8 @@ export default async function SupplierDetailPage({ params }: { params: Promise<{
     notFound();
   }
 
+  // Fetched separately from the ledger builder below because the "Purchases" card further down
+  // this page lists invoices on their own, independent of the combined invoice+payment ledger view.
   const { data: purchases } = await supabase
     .from("purchases")
     .select("id, status, supplier_invoice_number, purchase_date, total_paisa")
@@ -51,39 +48,7 @@ export default async function SupplierDetailPage({ params }: { params: Promise<{
     .not("status", "in", "(draft,cancelled)")
     .order("purchase_date");
 
-  const purchaseIds = (purchases ?? []).map((p) => p.id);
-
-  const { data: payments } =
-    purchaseIds.length > 0
-      ? await supabase
-          .from("purchase_payments")
-          .select("id, purchase_id, payment_mode, amount_paisa, paid_at")
-          .in("purchase_id", purchaseIds)
-          .order("paid_at")
-      : { data: [] };
-
-  const ledger: LedgerEntry[] = [
-    ...(purchases ?? []).map((p): LedgerEntry => ({
-      date: p.purchase_date,
-      type: "invoice",
-      description: p.supplier_invoice_number ? `Invoice ${p.supplier_invoice_number}` : "Purchase invoice",
-      amountPaisa: p.total_paisa,
-    })),
-    ...(payments ?? []).map((pay): LedgerEntry => ({
-      date: pay.paid_at,
-      type: "payment",
-      description: `Payment (${pay.payment_mode})`,
-      amountPaisa: -pay.amount_paisa,
-    })),
-  ].sort((a, b) => a.date.localeCompare(b.date));
-
-  let runningBalance = 0;
-  const ledgerWithBalance = ledger.map((entry) => {
-    runningBalance += entry.amountPaisa;
-    return { ...entry, balancePaisa: runningBalance };
-  });
-
-  const outstandingPaisa = runningBalance;
+  const { entries: ledgerWithBalance, outstandingPaisa } = await buildSupplierLedger(supabase, id);
 
   return (
     <div className="flex flex-col gap-6">
@@ -113,8 +78,14 @@ export default async function SupplierDetailPage({ params }: { params: Promise<{
       </Card>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Ledger</CardTitle>
+          <Button
+            variant="outline"
+            size="sm"
+            nativeButton={false}
+            render={<a href={`/api/suppliers/${id}/export`}>Export CSV</a>}
+          />
         </CardHeader>
         <CardContent>
           <Table>

@@ -5,6 +5,7 @@ import { getActingUserContext } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatPKR } from "@/lib/money";
 import { ReportNav } from "../report-nav";
+import { ExportCsvLink } from "../export-csv-link";
 
 interface ValuationRow {
   product_id: string;
@@ -41,11 +42,14 @@ export default async function StockValuationPage() {
   return (
     <div className="flex flex-col gap-6">
       <ReportNav current="/reports/stock-valuation" />
-      <div>
-        <h1 className="text-2xl font-semibold">Stock valuation</h1>
-        <p className="text-muted-foreground">
-          Current stock valued at average purchase cost, as of right now.
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold">Stock valuation</h1>
+          <p className="text-muted-foreground">
+            Current stock valued at average purchase cost, as of right now.
+          </p>
+        </div>
+        <ExportCsvLink href="/api/reports/stock-valuation/export" />
       </div>
 
       <Card>
