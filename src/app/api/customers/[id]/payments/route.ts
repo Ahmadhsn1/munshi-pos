@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getActingUserContext } from "@/lib/permissions";
+import { findOpenShiftIdForUser } from "@/lib/shifts";
 import { customerPaymentSchema } from "@/lib/validation";
 
 // A plain insert, not an RPC -- a "paid on account" pool payment against a customer's running
@@ -43,6 +44,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const input = parsed.data;
 
+  // A khata payment taken in CASH physically lands in the counter drawer, so it has to be part of
+  // that shift's expected-cash reconciliation. Before this, customer_payments had no shift link at
+  // all and shift close only counted `opening + cash sales - cash refunds` -- so every cash udhaar
+  // payment made the cashier look like they had a SURPLUS, which can mask a genuine shortage in the
+  // one report whose whole job is theft visibility. Non-cash never touches the drawer, and the
+  // DB-level check constraint enforces that pairing independently of this code.
+  const shiftId =
+    input.paymentMode === "cash"
+      ? await findOpenShiftIdForUser(admin, context.tenantId, context.userId)
+      : null;
+
   const { data, error } = await admin
     .from("customer_payments")
     .insert({
@@ -52,6 +64,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       amount_paisa: input.amountPaisa,
       reference_text: input.referenceText || null,
       paid_at: input.paidAt || undefined,
+      shift_id: shiftId,
       created_by: context.userId,
     })
     .select("id")

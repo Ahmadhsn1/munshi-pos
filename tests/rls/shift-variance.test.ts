@@ -32,6 +32,15 @@ async function computeExpectedCash(admin: SupabaseClient, shiftId: string, openi
     cashIn = (data ?? []).reduce((sum, p) => sum + p.amount_paisa, 0);
   }
 
+  // Cash khata receipts taken at this counter. Money in the drawer that the original formula could
+  // not see at all, because customer_payments had no shift link.
+  const { data: khataCash } = await admin
+    .from("customer_payments")
+    .select("amount_paisa")
+    .eq("shift_id", shiftId)
+    .eq("payment_mode", "cash");
+  cashIn += (khataCash ?? []).reduce((sum, p) => sum + p.amount_paisa, 0);
+
   let cashOut = 0;
   if (returnIds.length > 0) {
     const { data } = await admin
@@ -41,6 +50,14 @@ async function computeExpectedCash(admin: SupabaseClient, shiftId: string, openi
       .eq("payment_mode", "cash");
     cashOut = (data ?? []).reduce((sum, p) => sum + p.amount_paisa, 0);
   }
+
+  // Expenses paid straight out of the till. Voided ones are excluded.
+  const { data: expenseCash } = await admin
+    .from("expenses")
+    .select("amount_paisa")
+    .eq("shift_id", shiftId)
+    .is("voided_at", null);
+  cashOut += (expenseCash ?? []).reduce((sum, e) => sum + e.amount_paisa, 0);
 
   return openingCashPaisa + cashIn - cashOut;
 }
@@ -156,6 +173,100 @@ describe("shift cash variance", () => {
     expect(closedShift?.status).toBe("closed");
     expect(closedShift?.expected_cash_paisa).toBe(expected);
     expect(closedShift?.variance_paisa).toBe(0);
+  });
+
+  // REGRESSION TEST for the bug this phase fixed. A khata customer paying down udhaar in cash puts
+  // real money in the drawer, and a chai run takes real money out. Neither was visible to shift
+  // close: customer_payments and expenses had no shift link, so expected cash counted only sales
+  // and refunds. The cashier was reported as holding a SURPLUS equal to every udhaar payment they
+  // had collected -- which can cancel out, and therefore hide, a genuine shortage in the one number
+  // whose entire purpose is theft visibility. It also accuses an honest cashier of a variance they
+  // did not create. Both directions are asserted here.
+  it("counts cash khata receipts in and cash expenses out of the drawer", async () => {
+    const openingCash = 2000_00;
+    const shiftId = await createOpenShift(admin, tenant.tenantId, tenant.ownerId, tenant.ownerId, openingCash);
+    const customerId = await createTestCustomer(admin, tenant.tenantId);
+
+    // Rs 750 of udhaar paid back in cash -- lands in the drawer.
+    await admin.from("customer_payments").insert({
+      tenant_id: tenant.tenantId,
+      customer_id: customerId,
+      payment_mode: "cash",
+      amount_paisa: 750_00,
+      shift_id: shiftId,
+      created_by: tenant.ownerId,
+    });
+
+    // A non-cash khata payment must NOT move the drawer. The DB check constraint forbids pairing a
+    // shift with a non-cash mode, so this is recorded with no shift at all -- asserting here that
+    // it is genuinely excluded rather than silently counted.
+    await admin.from("customer_payments").insert({
+      tenant_id: tenant.tenantId,
+      customer_id: customerId,
+      payment_mode: "bank_transfer",
+      amount_paisa: 5000_00,
+      created_by: tenant.ownerId,
+    });
+
+    const { data: category } = await admin
+      .from("expense_categories")
+      .select("id")
+      .eq("tenant_id", tenant.tenantId)
+      .eq("key", "tea_food")
+      .single();
+
+    // Rs 120 of chai paid out of the till.
+    await admin.from("expenses").insert({
+      tenant_id: tenant.tenantId,
+      category_id: category!.id,
+      amount_paisa: 120_00,
+      payment_mode: "cash",
+      shift_id: shiftId,
+      created_by: tenant.ownerId,
+    });
+
+    // A voided expense must not reduce the drawer -- the money went back in.
+    const { data: voidedExpense } = await admin
+      .from("expenses")
+      .insert({
+        tenant_id: tenant.tenantId,
+        category_id: category!.id,
+        amount_paisa: 999_00,
+        payment_mode: "cash",
+        shift_id: shiftId,
+        created_by: tenant.ownerId,
+      })
+      .select("id")
+      .single();
+
+    await admin
+      .from("expenses")
+      .update({
+        voided_at: new Date().toISOString(),
+        voided_by: tenant.ownerId,
+        void_reason: "entered twice by mistake",
+      })
+      .eq("id", voidedExpense!.id);
+
+    const expected = await computeExpectedCash(admin, shiftId, openingCash);
+
+    // 2000 opening + 750 khata cash - 120 chai. The bank transfer and the voided expense are
+    // both excluded; under the old formula this would have come out as a flat 2000.
+    expect(expected).toBe(2000_00 + 750_00 - 120_00);
+    expect(expected).not.toBe(openingCash);
+
+    // Close it: uq_shifts_one_open_per_cashier permits only one open shift per cashier, so leaving
+    // this one open would break whichever test opens the next shift.
+    await admin
+      .from("shifts")
+      .update({
+        status: "closed",
+        closed_at: new Date(0).toISOString(),
+        expected_cash_paisa: expected,
+        actual_cash_paisa: expected,
+        variance_paisa: 0,
+      })
+      .eq("id", shiftId);
   });
 
   it("reports a non-zero variance when the counted cash does not match the expected amount", async () => {

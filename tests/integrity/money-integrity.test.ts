@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createAdminClient } from "./helpers";
+import { createAdminClient } from "../rls/helpers";
 
 /**
  * Money-correctness reconciliation against the REAL database.
@@ -16,6 +16,16 @@ import { createAdminClient } from "./helpers";
  *
  * The assertion is deliberately written to print WHICH invariant broke and by how many rows --
  * "expected 3 to be 0" on an anonymous number would send the next reader hunting.
+ *
+ * WHY THIS LIVES OUTSIDE tests/rls AND IS NOT PART OF `npm test`. It asserts a GLOBAL property over
+ * the entire database. The RLS suite runs its files concurrently and deliberately INSERTs
+ * incoherent fixture rows (a sale force-updated to 'completed' with no payments, for instance) to
+ * exercise policy behaviour -- so running this alongside them reports violations that are real
+ * in-flight fixture state and say nothing about production correctness. It flaked exactly that way
+ * once, and a guard that cries wolf is quickly ignored, which is worse than not having it.
+ *
+ * Run it on its own with `npm run test:integrity` -- against a live/production project it is a data
+ * canary, not a unit test.
  */
 describe("stored money still reconciles against its own source of truth", () => {
   it("reports zero violations for every money invariant", async () => {

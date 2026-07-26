@@ -56,25 +56,55 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { data: returns } = await admin.from("sale_returns").select("id").eq("shift_id", id);
   const returnIds = (returns ?? []).map((r) => r.id);
 
-  let cashIn = 0;
+  // Cash IN #1: sales rung up on this shift and paid in cash.
+  let saleCashIn = 0;
   if (saleIds.length > 0) {
     const { data: cashPayments } = await admin
       .from("sale_payments")
       .select("amount_paisa")
       .in("sale_id", saleIds)
       .eq("payment_mode", "cash");
-    cashIn = (cashPayments ?? []).reduce((sum, p) => sum + p.amount_paisa, 0);
+    saleCashIn = (cashPayments ?? []).reduce((sum, p) => sum + p.amount_paisa, 0);
   }
 
-  let cashOut = 0;
+  // Cash IN #2: khata customers paying down their udhaar in cash at this counter. Previously
+  // missing entirely -- customer_payments had no shift link -- so every such payment inflated the
+  // drawer without inflating the expectation, reporting a phantom SURPLUS. That is the worst
+  // possible failure for the one number meant to expose theft: a real shortage could be cancelled
+  // out by an unrelated udhaar payment landing in the same shift, and an honest cashier could be
+  // accused of a variance they did not cause.
+  const { data: khataCashIn } = await admin
+    .from("customer_payments")
+    .select("amount_paisa")
+    .eq("shift_id", id)
+    .eq("payment_mode", "cash");
+  const customerPaymentCashIn = (khataCashIn ?? []).reduce((sum, p) => sum + p.amount_paisa, 0);
+
+  // Cash OUT #1: refunds handed back in cash. A void is recorded as a full return, so a voided
+  // sale's original cash-in is cancelled by its refund here.
+  let refundCashOut = 0;
   if (returnIds.length > 0) {
     const { data: cashRefunds } = await admin
       .from("sale_return_payments")
       .select("amount_paisa")
       .in("sale_return_id", returnIds)
       .eq("payment_mode", "cash");
-    cashOut = (cashRefunds ?? []).reduce((sum, p) => sum + p.amount_paisa, 0);
+    refundCashOut = (cashRefunds ?? []).reduce((sum, p) => sum + p.amount_paisa, 0);
   }
+
+  // Cash OUT #2: shop expenses paid straight out of the till -- chai, a rickshaw fare, a small
+  // repair. Extremely common in a Pakistani shop and, until expenses existed, invisible: the money
+  // left the drawer and the cashier absorbed it as an unexplained shortage. Voided expenses are
+  // excluded; only cash can carry a shift_id (enforced by a DB check constraint).
+  const { data: expenseCashOut } = await admin
+    .from("expenses")
+    .select("amount_paisa")
+    .eq("shift_id", id)
+    .is("voided_at", null);
+  const expenseCash = (expenseCashOut ?? []).reduce((sum, e) => sum + e.amount_paisa, 0);
+
+  const cashIn = saleCashIn + customerPaymentCashIn;
+  const cashOut = refundCashOut + expenseCash;
 
   const expectedCashPaisa = shift.opening_cash_paisa + cashIn - cashOut;
   const variancePaisa = parsed.data.actualCashPaisa - expectedCashPaisa;
@@ -104,10 +134,21 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Shift is already closed" }, { status: 409 });
   }
 
+  // The breakdown ships with the result, not just the bottom line. A cashier told only "expected
+  // Rs 8,400, you are Rs 300 short" has no way to check the claim or spot which component is off --
+  // and an unexplainable variance is one nobody trusts or acts on. Itemising it turns the number
+  // into something a shopkeeper can actually reconcile against the drawer.
   return NextResponse.json({
     success: true,
     expectedCashPaisa,
     actualCashPaisa: parsed.data.actualCashPaisa,
     variancePaisa,
+    breakdown: {
+      openingCashPaisa: shift.opening_cash_paisa,
+      saleCashInPaisa: saleCashIn,
+      customerPaymentCashInPaisa: customerPaymentCashIn,
+      refundCashOutPaisa: refundCashOut,
+      expenseCashOutPaisa: expenseCash,
+    },
   });
 }

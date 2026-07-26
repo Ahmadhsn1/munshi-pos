@@ -21,6 +21,13 @@ interface VarianceResult {
   expectedCashPaisa: number;
   actualCashPaisa: number;
   variancePaisa: number;
+  breakdown?: {
+    openingCashPaisa: number;
+    saleCashInPaisa: number;
+    customerPaymentCashInPaisa: number;
+    refundCashOutPaisa: number;
+    expenseCashOutPaisa: number;
+  };
 }
 
 export function ShiftCloseDialog() {
@@ -85,6 +92,32 @@ export function ShiftCloseDialog() {
 
         {result ? (
           <div className="flex flex-col gap-2 text-sm">
+            {/* Itemised so the cashier can actually check the expected figure against the drawer
+                rather than being handed an unexplainable number and a shortage. */}
+            {result.breakdown && (
+              <dl className="text-muted-foreground grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 border-b pb-2">
+                <dt>Opening cash</dt>
+                <dd className="text-right tabular-nums">
+                  {formatPKR(result.breakdown.openingCashPaisa)}
+                </dd>
+                <dt>+ Cash sales</dt>
+                <dd className="text-right tabular-nums">
+                  {formatPKR(result.breakdown.saleCashInPaisa)}
+                </dd>
+                <dt>+ Khata payments received</dt>
+                <dd className="text-right tabular-nums">
+                  {formatPKR(result.breakdown.customerPaymentCashInPaisa)}
+                </dd>
+                <dt>− Cash refunds</dt>
+                <dd className="text-right tabular-nums">
+                  {formatPKR(result.breakdown.refundCashOutPaisa)}
+                </dd>
+                <dt>− Expenses from drawer</dt>
+                <dd className="text-right tabular-nums">
+                  {formatPKR(result.breakdown.expenseCashOutPaisa)}
+                </dd>
+              </dl>
+            )}
             <p>Expected cash: {formatPKR(result.expectedCashPaisa)}</p>
             <p>Actual cash: {formatPKR(result.actualCashPaisa)}</p>
             <p className={result.variancePaisa !== 0 ? "text-destructive font-medium" : "font-medium"}>
