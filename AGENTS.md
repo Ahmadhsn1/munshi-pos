@@ -295,7 +295,23 @@ actually built and tested.
   exercise policies. Run together, it reports in-flight fixture state as violations -- it flaked
   that way once, and a guard that cries wolf gets ignored. Against a real project it is a data
   canary, not a unit test.
+- `tests/rls/full-business-day.test.ts` -- plan.md Phase 7's exact testing checklist made real:
+  opens a shift, runs a purchase through confirm + goods-receipt (weighted-average costing), 20
+  sales (10 cash/10 khata), a partial return and a full void, closes the shift, then asserts
+  `get_sales_summary`/`get_product_sales`/`get_cashier_report`/`get_cash_book` all reconcile
+  against figures computed by hand in the test's own comments. This is the strongest evidence the
+  app has that a real trading day reconciles to the paisa across every layer at once -- extend it
+  (not `reports-reconciliation.test.ts`, which is Phase 6's narrower single-scenario version)
+  when a future phase adds a new report or a new kind of transaction that should show up in a full
+  day's numbers.
 - Scripts: `npm test` (unit + rls), `npm run test:unit`, `npm run test:rls`, `npm run test:integrity`.
+- `scripts/purge-leaked-test-tenants.cjs` -- reusable one-off cleanup for any future leaked-fixture
+  incident (same logic as `cleanupTenant`, but sweeps every tenant matching `RLS Test Tenant%` in
+  one run). Uses the Auth Admin API's `deleteUser` (never raw SQL on `auth.users` -- see the
+  script's own comment for why), with per-call retry/backoff for transient `AuthRetryableFetchError`
+  failures. If it reports the SAME failure on every single tenant across all retry attempts (not a
+  gradually-improving success rate), that means Supabase's Auth API is having a sustained outage on
+  this project, not a rate limit -- stop retrying and try again later rather than hammering it.
 - Whenever you add a new tenant-scoped table, add its name to `tests/rls/rls-enabled.test.ts`'s
   table list (see "Phase 2" section above) so a migration that forgets
   `ENABLE ROW LEVEL SECURITY` fails a test instead of waiting for a manual `get_advisors` pass.
