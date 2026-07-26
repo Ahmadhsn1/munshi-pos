@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentUserContext } from "@/lib/permissions";
+import { getActingUserContext } from "@/lib/permissions";
 
 // General-purpose product search for back-office flows (purchase-invoice entry) -- distinct from
 // /api/pos/products/search, which returns sale-oriented fields (sale_price, sale_unit) for the
@@ -8,7 +8,7 @@ import { getCurrentUserContext } from "@/lib/permissions";
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
-  const context = await getCurrentUserContext();
+  const context = await getActingUserContext();
 
   if (!context || !context.permissions.has("products.view")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -29,8 +29,15 @@ export async function GET(request: Request) {
     .eq("barcode", q)
     .maybeSingle();
 
-  const productSelect =
-    "id, name_en, name_ur, brand, current_stock, avg_cost_paisa, purchase_to_stock_factor, purchase_unit:purchase_unit_id(name), stock_unit:stock_unit_id(name)";
+  // avg_cost_paisa is omitted from the SELECT itself rather than fetched and then deleted from the
+  // response object. products.view is granted to cashier, so without this every product's cost
+  // price was one hand-typed URL away from anyone who could reach this endpoint -- and the UI-side
+  // `showCost` checks elsewhere did nothing to stop that, since they only govern rendering.
+  // Not selecting it means an unauthorized caller's cost data never leaves Postgres at all, so no
+  // later refactor of the response shape can accidentally re-expose it.
+  const productSelect = context.permissions.has("cost_price.view")
+    ? "id, name_en, name_ur, brand, current_stock, avg_cost_paisa, purchase_to_stock_factor, purchase_unit:purchase_unit_id(name), stock_unit:stock_unit_id(name)"
+    : "id, name_en, name_ur, brand, current_stock, purchase_to_stock_factor, purchase_unit:purchase_unit_id(name), stock_unit:stock_unit_id(name)";
 
   if (barcodeMatch) {
     const { data: product } = await supabase

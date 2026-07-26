@@ -17,7 +17,9 @@ interface SearchProduct {
   name_ur: string | null;
   brand: string | null;
   current_stock: number;
-  avg_cost_paisa: number;
+  // Optional because /api/products/search omits it entirely for callers without cost_price.view --
+  // the absence is the enforcement, so this must not be typed as always-present.
+  avg_cost_paisa?: number;
   purchase_to_stock_factor: number;
   purchase_unit: { name: string } | null;
 }
@@ -201,7 +203,8 @@ export function NewPurchaseClient() {
                     {product.brand && <span className="text-muted-foreground ml-2">({product.brand})</span>}
                   </span>
                   <span className="text-muted-foreground">
-                    {product.current_stock} in stock · avg cost {formatPKR(product.avg_cost_paisa)}
+                    {product.current_stock} in stock
+                    {product.avg_cost_paisa !== undefined && ` · avg cost ${formatPKR(product.avg_cost_paisa)}`}
                   </span>
                 </button>
               ))}

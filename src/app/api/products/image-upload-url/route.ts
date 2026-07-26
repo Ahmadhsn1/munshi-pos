@@ -2,7 +2,7 @@ import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getCurrentUserContext } from "@/lib/permissions";
+import { getActingUserContext } from "@/lib/permissions";
 
 // Issues a short-lived signed Storage upload URL rather than proxying the file bytes through
 // this route -- the client uploads directly to Storage, this only decides (and controls) the
@@ -20,7 +20,7 @@ function sanitizeFileName(name: string) {
 }
 
 export async function POST(request: Request) {
-  const context = await getCurrentUserContext();
+  const context = await getActingUserContext();
 
   if (!context || !context.permissions.has("products.manage")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });

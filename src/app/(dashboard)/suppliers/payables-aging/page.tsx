@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { getCurrentUserContext } from "@/lib/permissions";
+import { getActingUserContext } from "@/lib/permissions";
 import { formatPKR } from "@/lib/money";
 import { createClient } from "@/lib/supabase/server";
 
@@ -11,7 +11,7 @@ import { createClient } from "@/lib/supabase/server";
 // purchase_payments row references a specific purchase_id directly, so an invoice's remaining
 // balance is exact (total_paisa - payments against that invoice), not an approximation.
 export default async function PayablesAgingPage() {
-  const context = await getCurrentUserContext();
+  const context = await getActingUserContext();
 
   if (!context) {
     redirect("/login");

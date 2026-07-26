@@ -3,12 +3,12 @@ import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { getCurrentUserContext } from "@/lib/permissions";
+import { getActingUserContext } from "@/lib/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { SupplierCreateForm } from "./supplier-create-form";
 
 export default async function SuppliersPage() {
-  const context = await getCurrentUserContext();
+  const context = await getActingUserContext();
 
   if (!context) {
     redirect("/login");

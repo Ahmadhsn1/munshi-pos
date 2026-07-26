@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getCurrentUserContext } from "@/lib/permissions";
+import { getActingUserContext } from "@/lib/permissions";
 import { purchasePaymentSchema } from "@/lib/validation";
 
 // A plain insert, not an RPC -- a supplier payment is a standalone event against an already-
@@ -11,7 +11,7 @@ export const runtime = "nodejs";
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const context = await getCurrentUserContext();
+  const context = await getActingUserContext();
 
   if (!context || !context.permissions.has("purchases.manage")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });

@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { getCurrentUserContext } from "@/lib/permissions";
+import { getActingUserContext } from "@/lib/permissions";
 import { formatPKR } from "@/lib/money";
 import { createClient } from "@/lib/supabase/server";
 
@@ -17,7 +17,7 @@ const STATUS_VARIANT: Record<string, "secondary" | "outline" | "destructive"> = 
 };
 
 export default async function PurchasesPage() {
-  const context = await getCurrentUserContext();
+  const context = await getActingUserContext();
 
   if (!context) {
     redirect("/login");

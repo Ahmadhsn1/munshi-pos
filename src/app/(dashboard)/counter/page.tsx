@@ -1,11 +1,11 @@
 import { redirect } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { getCurrentUserContext } from "@/lib/permissions";
+import { getActingUserContext } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { CounterPinPad } from "./pin-pad";
 
 export default async function CounterPage() {
-  const context = await getCurrentUserContext();
+  const context = await getActingUserContext();
 
   if (!context) {
     redirect("/login");

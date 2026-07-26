@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getCurrentUserContext } from "@/lib/permissions";
+import { getActingUserContext } from "@/lib/permissions";
 import { customerPaymentSchema } from "@/lib/validation";
 
 // A plain insert, not an RPC -- a "paid on account" pool payment against a customer's running
@@ -12,7 +12,7 @@ export const runtime = "nodejs";
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const context = await getCurrentUserContext();
+  const context = await getActingUserContext();
 
   if (!context || !context.permissions.has("customers.manage")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });

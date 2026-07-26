@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getCurrentUserContext } from "@/lib/permissions";
+import { getActingUserContext } from "@/lib/permissions";
 import { supplierUpdateSchema } from "@/lib/validation";
 
 export const runtime = "nodejs";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const context = await getCurrentUserContext();
+  const context = await getActingUserContext();
 
   if (!context || !context.permissions.has("suppliers.manage")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });

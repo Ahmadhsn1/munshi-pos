@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getCurrentUserContext } from "@/lib/permissions";
+import { getActingUserContext } from "@/lib/permissions";
 import { unitCreateSchema } from "@/lib/validation";
 
 // Backs the inline "+ create unit" affordance in the product form -- units are tenant-scoped and
@@ -8,7 +8,7 @@ import { unitCreateSchema } from "@/lib/validation";
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
-  const context = await getCurrentUserContext();
+  const context = await getActingUserContext();
 
   if (!context || !context.permissions.has("products.manage")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });

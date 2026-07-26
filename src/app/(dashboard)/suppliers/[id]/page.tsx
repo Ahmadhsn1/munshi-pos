@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { getCurrentUserContext } from "@/lib/permissions";
+import { getActingUserContext } from "@/lib/permissions";
 import { formatPKR } from "@/lib/money";
 import { createClient } from "@/lib/supabase/server";
 
@@ -16,7 +16,7 @@ interface LedgerEntry {
 
 export default async function SupplierDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const context = await getCurrentUserContext();
+  const context = await getActingUserContext();
 
   if (!context) {
     redirect("/login");

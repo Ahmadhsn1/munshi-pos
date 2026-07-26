@@ -55,7 +55,7 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  // /api/* is deliberately excluded. Route Handlers do their own auth (getCurrentUserContext /
+  // /api/* is deliberately excluded. Route Handlers do their own auth (getActingUserContext /
   // getUser) and return proper 401/403 JSON on failure -- they must never get the page-guard's
   // redirect-to-/login treatment, which turns a POST into a redirected response whose body is
   // login-page HTML instead of JSON (silently breaks res.json() client-side, e.g. during signup,

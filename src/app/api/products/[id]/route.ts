@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getCurrentUserContext } from "@/lib/permissions";
+import { getActingUserContext } from "@/lib/permissions";
 import { toPaisa } from "@/lib/money";
 import { toBps } from "@/lib/tax";
 import { productUpdateSchema } from "@/lib/validation";
@@ -9,7 +9,7 @@ export const runtime = "nodejs";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const context = await getCurrentUserContext();
+  const context = await getActingUserContext();
 
   if (!context || !context.permissions.has("products.manage")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });

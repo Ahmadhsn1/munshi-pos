@@ -3,7 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getActingUserContext } from "@/lib/permissions";
 import { shiftOpenSchema } from "@/lib/validation";
 
-// Uses getActingUserContext() (not getCurrentUserContext()) -- the person opening a shift is
+// Uses getActingUserContext() (not getActingUserContext()) -- the person opening a shift is
 // whoever is actually at the counter, which may be a cashier riding on an owner/manager's real
 // session via PIN counter-login.
 export const runtime = "nodejs";

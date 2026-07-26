@@ -3,14 +3,14 @@ import { notFound, redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { getCurrentUserContext } from "@/lib/permissions";
+import { getActingUserContext } from "@/lib/permissions";
 import { formatPKR } from "@/lib/money";
 import { createClient } from "@/lib/supabase/server";
 import { PurchaseActions } from "./receive-return-payment-actions";
 
 export default async function PurchaseDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const context = await getCurrentUserContext();
+  const context = await getActingUserContext();
 
   if (!context) {
     redirect("/login");
@@ -102,10 +102,14 @@ export default async function PurchaseDetailPage({ params }: { params: Promise<{
       batchNumber: line.batch_number,
       expiryDate: line.expiry_date,
       quantity: line.quantity,
-      unitCostPaisa: line.unit_cost_paisa,
-      discountPaisa: line.discount_paisa,
+      // Cost figures are dropped from the projected object, not merely hidden at render time.
+      // `showCost &&` in the JSX below only decides what is PAINTED -- anything present on this
+      // object can still travel to the browser in the RSC payload, so a caller without
+      // cost_price.view must never see these fields populated in the first place.
+      unitCostPaisa: showCost ? line.unit_cost_paisa : null,
+      discountPaisa: showCost ? line.discount_paisa : null,
       isFreeGoods: line.is_free_goods,
-      lineTotalPaisa: line.line_total_paisa,
+      lineTotalPaisa: showCost ? line.line_total_paisa : null,
       receivedStockUnits,
       remainingPurchaseUnits: Math.floor((invoicedStockUnits - receivedStockUnits) / factor),
       remainingReturnableStockUnits: receivedStockUnits - returnedStockUnits,

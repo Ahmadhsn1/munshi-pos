@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createCounterSessionToken } from "@/lib/counter-session";
 import { COUNTER_COOKIE_NAME } from "@/lib/counter-cookie";
-import { getCurrentUserContext } from "@/lib/permissions";
+import { getSessionUserContext } from "@/lib/permissions";
 import { verifyPin } from "@/lib/pin";
 import { counterLoginSchema } from "@/lib/validation";
 
@@ -13,10 +13,14 @@ const MAX_ATTEMPTS = 5;
 const LOCKOUT_MS = 5 * 60 * 1000;
 
 export async function POST(request: Request) {
-  // The caller must have a real, already-authenticated session (an owner/manager device that's
-  // staying logged in) -- counter-login never creates a new Supabase Auth session, it just
-  // records which staff member is "at the counter" on top of that real session.
-  const context = await getCurrentUserContext();
+  // Deliberately the SESSION identity, not the acting one -- this is one of the few places that
+  // genuinely means "whose real login is this device on". The caller must have a real,
+  // already-authenticated session (an owner/manager device that's staying logged in);
+  // counter-login never creates a new Supabase Auth session, it just records which staff member is
+  // "at the counter" on top of that real session. Only `tenantId` is read below, which is
+  // identical either way -- but resolving the acting context here would be circular in intent
+  // (asking "who's at the counter" in the very handler that decides who's at the counter).
+  const context = await getSessionUserContext();
 
   if (!context) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });

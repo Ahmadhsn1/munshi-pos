@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getCurrentUserContext } from "@/lib/permissions";
+import { getActingUserContext } from "@/lib/permissions";
 import { purchaseDraftUpdateSchema } from "@/lib/validation";
 
 export const runtime = "nodejs";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const context = await getCurrentUserContext();
+  const context = await getActingUserContext();
 
   if (!context || !context.permissions.has("purchases.manage")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -26,11 +26,19 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Purchase not found" }, { status: 404 });
   }
 
+  // Defense in depth. Today purchases.manage is only ever granted alongside cost_price.view, so
+  // this branch is unreachable -- but a purchase line's unit cost IS the cost price, and pairing
+  // the two permissions is a seeding convention, not something the code enforces. Leaving the
+  // costs unconditionally selected would make a future "let a senior cashier reconcile deliveries"
+  // grant silently leak them.
+  const canViewCost = context.permissions.has("cost_price.view");
+  const lineSelect = canViewCost
+    ? "id, product_id, batch_number, expiry_date, quantity, unit_cost_paisa, discount_paisa, is_free_goods, line_total_paisa, products:product_id(name_en, name_ur)"
+    : "id, product_id, batch_number, expiry_date, quantity, is_free_goods, products:product_id(name_en, name_ur)";
+
   const { data: lines } = await admin
     .from("purchase_line_items")
-    .select(
-      "id, product_id, batch_number, expiry_date, quantity, unit_cost_paisa, discount_paisa, is_free_goods, line_total_paisa, products:product_id(name_en, name_ur)",
-    )
+    .select(lineSelect)
     .eq("purchase_id", id);
 
   return NextResponse.json({ purchase, lines: lines ?? [] });
@@ -41,7 +49,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 // enforce_purchase_line_items_tenant_consistency also backstops this at the DB level.
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const context = await getCurrentUserContext();
+  const context = await getActingUserContext();
 
   if (!context || !context.permissions.has("purchases.manage")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });

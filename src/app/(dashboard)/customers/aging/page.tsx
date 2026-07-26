@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { getCurrentUserContext } from "@/lib/permissions";
+import { getActingUserContext } from "@/lib/permissions";
 import { formatPKR } from "@/lib/money";
 import { createClient } from "@/lib/supabase/server";
 import { allocateFifoAging, type KhataDebit } from "@/lib/khata";
@@ -12,7 +12,7 @@ import { allocateFifoAging, type KhataDebit } from "@/lib/khata";
 // onto a different, older invoice; stage 2 applies customer_payments (the genuinely unattributed
 // "paid on account" pool) via FIFO against what's left of stage 1's per-sale debits.
 export default async function KhataAgingPage() {
-  const context = await getCurrentUserContext();
+  const context = await getActingUserContext();
 
   if (!context) {
     redirect("/login");

@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { getCurrentUserContext } from "@/lib/permissions";
+import { getActingUserContext } from "@/lib/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { StockAdjustmentDialog } from "./stock-adjustment-dialog";
 import { OpeningStockImportDialog } from "./opening-stock-import-dialog";
@@ -14,7 +14,7 @@ export default async function InventoryPage({
 }: {
   searchParams: Promise<{ low?: string }>;
 }) {
-  const context = await getCurrentUserContext();
+  const context = await getActingUserContext();
 
   if (!context) {
     redirect("/login");

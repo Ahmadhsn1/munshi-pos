@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { parse } from "csv-parse/sync";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getCurrentUserContext } from "@/lib/permissions";
+import { getActingUserContext } from "@/lib/permissions";
 import { toBps } from "@/lib/tax";
 import { openingStockRowSchema } from "@/lib/validation";
 
@@ -22,7 +22,7 @@ interface RowError {
 }
 
 export async function POST(request: Request) {
-  const context = await getCurrentUserContext();
+  const context = await getActingUserContext();
 
   // Requires both permissions since this endpoint both creates products AND writes stock
   // movements in one action.

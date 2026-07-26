@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getCurrentUserContext } from "@/lib/permissions";
+import { getActingUserContext } from "@/lib/permissions";
 import { purchaseDraftCreateSchema } from "@/lib/validation";
 
 // Draft building (start/edit a purchase invoice before confirming) is plain sequential
@@ -10,7 +10,7 @@ import { purchaseDraftCreateSchema } from "@/lib/validation";
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
-  const context = await getCurrentUserContext();
+  const context = await getActingUserContext();
 
   if (!context || !context.permissions.has("purchases.manage")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
