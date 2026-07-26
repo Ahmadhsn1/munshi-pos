@@ -4,7 +4,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getActingUserContext } from "@/lib/permissions";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { DailySummaryCard } from "./daily-summary-card";
+import { OnboardingChecklist } from "./onboarding-checklist";
 
 export default async function DashboardPage() {
   const context = await getActingUserContext();
@@ -13,12 +15,42 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
+  // Hidden during a counter/cashier session for the same reason the trial banner is -- "getting
+  // started" guidance is a back-office concern for whoever is setting the shop up, not something a
+  // cashier ringing up sales needs to see. head:true avoids fetching any rows just to get a count.
+  let showOnboarding = false;
+  let hasProducts = false;
+  let hasCompletedSale = false;
+
+  if (!context.isCounterSession) {
+    const admin = createAdminClient();
+    const [{ count: productCount }, { count: saleCount }] = await Promise.all([
+      admin
+        .from("products")
+        .select("id", { count: "exact", head: true })
+        .eq("tenant_id", context.tenantId),
+      admin
+        .from("sales")
+        .select("id", { count: "exact", head: true })
+        .eq("tenant_id", context.tenantId)
+        .not("invoice_number", "is", null),
+    ]);
+
+    hasProducts = (productCount ?? 0) > 0;
+    hasCompletedSale = (saleCount ?? 0) > 0;
+    showOnboarding = !hasCompletedSale;
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-2xl font-semibold">Dashboard</h1>
         <p className="text-muted-foreground">Welcome back, {context.fullName}.</p>
       </div>
+
+      {showOnboarding && (
+        <OnboardingChecklist hasProducts={hasProducts} hasCompletedSale={hasCompletedSale} />
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Card>
