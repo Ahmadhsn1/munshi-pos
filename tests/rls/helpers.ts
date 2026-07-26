@@ -130,9 +130,76 @@ export async function cleanupUser(admin: SupabaseClient, userId: string) {
   await admin.auth.admin.deleteUser(userId);
 }
 
+// Child tables in FK dependency order (children first). EVERY tenant-scoped table belongs here:
+// they all carry `tenant_id ... on delete restrict`, so a single missing entry silently blocks the
+// tenant delete again. stock_ledger leads because it references products, sales, sale_returns,
+// purchases and purchase_returns all at once.
+const TENANT_CHILD_TABLES_IN_DELETE_ORDER = [
+  "audit_log",
+  "expenses",
+  "expense_categories",
+  "stock_ledger",
+  "sale_return_payments",
+  "sale_return_line_items",
+  "sale_returns",
+  "sale_payments",
+  "sale_line_items",
+  "sales",
+  "customer_payments",
+  "customers",
+  "purchase_payments",
+  "purchase_return_line_items",
+  "purchase_returns",
+  "purchase_receipt_line_items",
+  "purchase_receipts",
+  "purchase_line_items",
+  "purchases",
+  "suppliers",
+  "shifts",
+  "sale_number_counters",
+  "product_barcodes",
+  "products",
+  "categories",
+  "units",
+] as const;
+
+/**
+ * Deletes a test tenant and everything under it.
+ *
+ * This used to be a bare `delete from tenants` whose error was discarded. Because every
+ * tenant-scoped table is `on delete restrict`, that delete failed the moment a test had created so
+ * much as one unit -- and since nothing inspected the error, it failed *silently*. The fixtures
+ * were never actually cleaned up: a shared cloud project had accumulated 268 leaked tenants,
+ * ~14.5k products and ~14.7k stock-ledger rows, roughly 37 new tenants per full suite run. That
+ * junk both bloats a free-tier project toward its quota and pollutes any query that reasons over
+ * real data (it briefly looked like 14 sales had corrupt totals; every one was a leaked fixture).
+ *
+ * Throwing on failure is the important part -- a cleanup helper that cannot fail loudly is how the
+ * leak went unnoticed in the first place.
+ */
 export async function cleanupTenant(admin: SupabaseClient, tenantId: string) {
-  // Users must already be gone -- public.users.tenant_id is `on delete restrict`.
-  await admin.from("tenants").delete().eq("id", tenantId);
+  for (const table of TENANT_CHILD_TABLES_IN_DELETE_ORDER) {
+    const { error } = await admin.from(table).delete().eq("tenant_id", tenantId);
+    if (error) {
+      throw new Error(`cleanupTenant: failed clearing ${table} for tenant ${tenantId}: ${error.message}`);
+    }
+  }
+
+  // public.users.tenant_id is `on delete restrict`, so any staff row the test created and did not
+  // individually clean up still blocks the tenant delete. Rather than depend on every test
+  // remembering to pair each createCashier() with a cleanupUser(), sweep whatever is left: the
+  // auth.users delete cascades into public.users. This runs AFTER the child tables above because
+  // their created_by/cashier_user_id columns reference users with `on delete restrict` too.
+  const { data: remainingUsers } = await admin.from("users").select("id").eq("tenant_id", tenantId);
+
+  for (const user of remainingUsers ?? []) {
+    await admin.auth.admin.deleteUser(user.id);
+  }
+
+  const { error } = await admin.from("tenants").delete().eq("id", tenantId);
+  if (error) {
+    throw new Error(`cleanupTenant: failed deleting tenant ${tenantId}: ${error.message}`);
+  }
 }
 
 // bootstrap_tenant seeds a default unit catalog (piece, kg, g, ...) -- tests reuse those rather

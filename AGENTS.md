@@ -202,7 +202,20 @@ actually built and tested.
   (requires `SUPABASE_SERVICE_ROLE_KEY` to be filled in). Seeds real tenants/users, signs in with
   real passwords, and asserts on real RLS behavior -- not mocks. This is deliberate: RLS policy
   bugs are exactly the kind of thing a mock would hide. Tests clean up their own fixtures in
-  `afterAll`.
+  `afterAll` via `cleanupTenant`, which deletes every tenant-scoped child table in FK order, sweeps
+  any leftover users, and **throws** on failure. It used to be a bare `delete from tenants` whose
+  error was discarded -- and since every tenant-scoped table is `on delete restrict`, it failed
+  the moment a test created one row, silently, leaking ~37 tenants per run (295 tenants, ~18k
+  products had piled up before this was caught). **When you add a tenant-scoped table, add it to
+  `TENANT_CHILD_TABLES_IN_DELETE_ORDER` in `tests/rls/helpers.ts`** or teardown starts failing
+  loudly again. `hookTimeout` is 120s because that teardown is ~26 sequential network round trips
+  per tenant.
+- `npx vitest run tests/rls/money-integrity.test.ts` -- reconciles stored money against its own
+  source of truth in the live database (stock projection vs ledger, sale totals vs line items,
+  payments vs totals, refunds vs return totals, no over-returns, no negative stock/cost, no
+  ownerless khata). tsc/lint/tests/build are all structurally blind to *stored data drifting*, which
+  is the failure a shopkeeper notices first. Add new invariants to the `check_money_integrity()`
+  SQL function, not the test -- the test just asserts every returned violation count is zero.
 - Whenever you add a new tenant-scoped table, add its name to `tests/rls/rls-enabled.test.ts`'s
   table list (see "Phase 2" section above) so a migration that forgets
   `ENABLE ROW LEVEL SECURITY` fails a test instead of waiting for a manual `get_advisors` pass.
