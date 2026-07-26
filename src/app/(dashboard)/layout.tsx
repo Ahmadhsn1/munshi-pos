@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getActingUserContext } from "@/lib/permissions";
+import { createClient } from "@/lib/supabase/server";
 import { LogoutButton } from "@/components/logout-button";
+import { TrialBanner } from "./trial-banner";
 
 // Nav is driven by the ACTING user's permissions, not the session user's. While a cashier is PIN'd
 // in at the counter the device is still running on the owner's Supabase session, so a
@@ -43,8 +45,23 @@ export default async function DashboardLayout({ children }: { children: React.Re
     (item) => item.permission === null || context.permissions.has(item.permission),
   );
 
+  // Only fetched/shown for a real owner/manager session, never during a counter/cashier session --
+  // subscription/billing status is a back-office concern a cashier ringing up sales has no need to
+  // see, matching the same reasoning as hiding Staff/Purchases/etc. from them in the nav above.
+  let trialEndsAt: string | null = null;
+  if (!context.isCounterSession) {
+    const supabase = await createClient();
+    const { data: tenant } = await supabase
+      .from("tenants")
+      .select("trial_ends_at")
+      .eq("id", context.tenantId)
+      .single();
+    trialEndsAt = tenant?.trial_ends_at ?? null;
+  }
+
   return (
     <div className="flex min-h-screen flex-col">
+      {trialEndsAt && <TrialBanner trialEndsAt={trialEndsAt} />}
       {context.isCounterSession && (
         // Without this the screen is indistinguishable from the owner's own, which is precisely
         // how an owner forgets the counter is still handed over and walks away from a logged-in

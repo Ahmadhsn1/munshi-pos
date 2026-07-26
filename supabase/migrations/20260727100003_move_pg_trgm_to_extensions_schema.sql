@@ -1,0 +1,12 @@
+-- Advisor finding (extension_in_public), caught by running get_advisors right after the previous
+-- migration per AGENTS.md's standing rule to check advisors after DDL: pg_trgm was installed into
+-- `public`, which Supabase's linter flags -- extensions bring their own operators/functions into
+-- whatever schema they're installed in, and `public` is the one schema every client role can
+-- already see into, so keeping extensions out of it is documented best practice.
+--
+-- ALTER EXTENSION ... SET SCHEMA moves the extension and its objects without needing to drop and
+-- recreate anything that depends on it -- the GIN trigram indexes from the previous migration keep
+-- working unchanged. Verified live: indisvalid/indisready still true for all three indexes, and a
+-- forced EXPLAIN ANALYZE (enable_seqscan off) confirmed the planner still picks
+-- idx_products_name_en_trgm via a Bitmap Index Scan, not a fallback to a sequential scan.
+alter extension pg_trgm set schema extensions;
