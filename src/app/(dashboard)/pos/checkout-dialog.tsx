@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/select";
 import { formatPKR } from "@/lib/money";
 import { computeRoundOff } from "@/lib/round-off";
-import { ReceiptView, type ReceiptData } from "./receipt-view";
+import { ReceiptView, type ReceiptData, type ReceiptLine } from "./receipt-view";
 
 const PAYMENT_MODES = [
   { value: "cash", label: "Cash" },
@@ -63,6 +63,10 @@ export function CheckoutDialog({
     { paymentMode: "cash", amountRupees: "", referenceText: "" },
   ]);
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
+  // Captured from the same GET that computes saleTotalBeforeDiscount below, so the receipt shown
+  // after checkout reflects exactly the cart that was actually charged -- not re-fetched a second
+  // time after complete, when a race with another line-edit could show something different.
+  const [receiptLines, setReceiptLines] = useState<ReceiptLine[]>([]);
 
   useEffect(() => {
     if (!open) return;
@@ -74,13 +78,35 @@ export function CheckoutDialog({
     fetch(`/api/pos/sales/${saleId}`)
       .then((res) => res.json())
       .then((body) => {
-        const lines = (body.lines ?? []) as { unit_price_paisa: number; quantity: number; tax_paisa: number; line_discount_paisa: number }[];
+        interface RawLine {
+          unit_price_paisa: number;
+          quantity: number;
+          tax_paisa: number;
+          line_discount_paisa: number;
+          line_total_paisa: number;
+          products: {
+            name_en: string;
+            name_ur: string | null;
+            sale_unit: { name: string } | null;
+          } | null;
+        }
+        const lines = (body.lines ?? []) as RawLine[];
         const total = lines.reduce(
           (sum: number, l) => sum + l.unit_price_paisa * l.quantity - l.line_discount_paisa + l.tax_paisa,
           0,
         );
         setSaleTotalBeforeDiscount(total);
         setPayments([{ paymentMode: "cash", amountRupees: (total / 100).toFixed(2), referenceText: "" }]);
+        setReceiptLines(
+          lines.map((l) => ({
+            nameEn: l.products?.name_en ?? "Product",
+            nameUr: l.products?.name_ur ?? null,
+            quantity: l.quantity,
+            unitName: l.products?.sale_unit?.name ?? null,
+            unitPricePaisa: l.unit_price_paisa,
+            lineTotalPaisa: l.line_total_paisa,
+          })),
+        );
       });
   }, [open, saleId]);
 
@@ -141,6 +167,7 @@ export function CheckoutDialog({
         itemCount,
         paymentModes: [...new Set(payments.map((p) => p.paymentMode))],
         tenantName,
+        lines: receiptLines,
       });
       toast.success("Sale completed");
       if (result.khataWarning) {
