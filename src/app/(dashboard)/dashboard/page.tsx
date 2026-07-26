@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getActingUserContext } from "@/lib/permissions";
+import { DailySummaryCard } from "./daily-summary-card";
 
 export default async function DashboardPage() {
   const context = await getActingUserContext();
@@ -15,7 +16,7 @@ export default async function DashboardPage() {
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-2xl font-semibold">Dashboard</h1>
-        <p className="text-muted-foreground">Phase 1 smoke test: auth, tenancy, and roles.</p>
+        <p className="text-muted-foreground">Welcome back, {context.fullName}.</p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -47,6 +48,8 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {context.permissions.has("reports.view") && <DailySummaryCard />}
 
       {context.permissions.has("users.manage") ? (
         <Card>

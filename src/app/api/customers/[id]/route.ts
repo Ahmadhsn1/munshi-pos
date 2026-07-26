@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getActingUserContext } from "@/lib/permissions";
 import { customerUpdateSchema } from "@/lib/validation";
+import { writeAuditLog } from "@/lib/audit";
+import { formatPKR } from "@/lib/money";
 
 export const runtime = "nodejs";
 
@@ -38,6 +40,19 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const admin = createAdminClient();
 
+  // Read the pre-update row only when a sensitive field is actually changing -- credit limit and
+  // blacklist are the two customer fields that directly gate whether a sale is allowed to
+  // proceed on khata, so a change to either is worth a before/after trail.
+  const touchesSensitiveField = "credit_limit_paisa" in update || "is_blacklisted" in update;
+  const { data: before } = touchesSensitiveField
+    ? await admin
+        .from("customers")
+        .select("name, credit_limit_paisa, is_blacklisted")
+        .eq("id", id)
+        .eq("tenant_id", context.tenantId)
+        .maybeSingle()
+    : { data: null };
+
   const { data, error } = await admin
     .from("customers")
     .update(update)
@@ -55,6 +70,36 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   if (!data) {
     return NextResponse.json({ error: "Customer not found" }, { status: 404 });
+  }
+
+  if (before) {
+    const changes: string[] = [];
+    if ("credit_limit_paisa" in update && update.credit_limit_paisa !== before.credit_limit_paisa) {
+      const from = before.credit_limit_paisa == null ? "none" : formatPKR(before.credit_limit_paisa);
+      const to =
+        update.credit_limit_paisa == null ? "none" : formatPKR(update.credit_limit_paisa as number);
+      changes.push(`credit limit ${from} → ${to}`);
+    }
+    if ("is_blacklisted" in update && update.is_blacklisted !== before.is_blacklisted) {
+      changes.push(update.is_blacklisted ? "blacklisted" : "un-blacklisted");
+    }
+
+    if (changes.length > 0) {
+      await writeAuditLog(admin, context, {
+        action: "customer.credit_change",
+        entityType: "customer",
+        entityId: id,
+        summary: `${before.name}: ${changes.join(", ")}`,
+        beforeData: {
+          creditLimitPaisa: before.credit_limit_paisa,
+          isBlacklisted: before.is_blacklisted,
+        },
+        afterData: {
+          creditLimitPaisa: update.credit_limit_paisa ?? before.credit_limit_paisa,
+          isBlacklisted: update.is_blacklisted ?? before.is_blacklisted,
+        },
+      });
+    }
   }
 
   return NextResponse.json({ success: true });

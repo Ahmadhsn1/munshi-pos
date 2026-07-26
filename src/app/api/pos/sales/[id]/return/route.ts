@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getActingUserContext } from "@/lib/permissions";
 import { saleReturnSchema } from "@/lib/validation";
+import { writeAuditLog } from "@/lib/audit";
+import { formatPKR } from "@/lib/money";
 
 export const runtime = "nodejs";
 
@@ -27,7 +29,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const { data: sale } = await admin
     .from("sales")
-    .select("id")
+    .select("id, invoice_number")
     .eq("id", id)
     .eq("tenant_id", context.tenantId)
     .maybeSingle();
@@ -71,6 +73,21 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
+
+  const returnTotalPaisa = (data as { totalPaisa?: number } | null)?.totalPaisa ?? 0;
+
+  await writeAuditLog(admin, context, {
+    action: "sale.return",
+    entityType: "sale",
+    entityId: id,
+    summary: `Returned ${formatPKR(returnTotalPaisa)} from sale ${sale.invoice_number ?? id} (${parsed.data.reasonCode})`,
+    afterData: {
+      reasonCode: parsed.data.reasonCode,
+      note: parsed.data.note || null,
+      totalPaisa: returnTotalPaisa,
+      lineCount: parsed.data.lines.length,
+    },
+  });
 
   return NextResponse.json({ success: true, ...data });
 }

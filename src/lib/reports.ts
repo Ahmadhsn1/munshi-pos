@@ -1,4 +1,5 @@
 import { reportRangeSchema } from "@/lib/validation";
+import { formatPKR } from "@/lib/money";
 
 export interface ReportRange {
   /** Inclusive business date, YYYY-MM-DD. */
@@ -92,4 +93,41 @@ export function marginBps(revenuePaisa: number, cogsPaisa: number): number {
 /** Formats basis points as a human percentage string, e.g. 2350 -> "23.5%". */
 export function formatBps(bps: number): string {
   return `${(bps / 100).toFixed(1)}%`;
+}
+
+export interface DailySummaryInput {
+  tenantName: string;
+  businessDay: string;
+  transactionCount: number;
+  revenuePaisa: number;
+  cashSalesPaisa: number;
+  khataSalesPaisa: number;
+  expensesPaisa: number;
+}
+
+/**
+ * Manual daily sales summary for WhatsApp -- plan.md Phase 6: "manual trigger first, cron job
+ * later". Mirrors lib/receipt.ts and lib/khata.ts's existing buildWhatsApp*Url pattern exactly:
+ * same wa.me deep link, no Business API, no scheduling, condensed (not itemised) because wa.me's
+ * prefilled-text field has practical length limits.
+ */
+export function buildDailySummaryText(input: DailySummaryInput): string {
+  return [
+    `${input.tenantName} — Daily Summary`,
+    input.businessDay,
+    "",
+    `Transactions: ${input.transactionCount}`,
+    `Revenue: ${formatPKR(input.revenuePaisa)}`,
+    `  Cash: ${formatPKR(input.cashSalesPaisa)}`,
+    `  Khata: ${formatPKR(input.khataSalesPaisa)}`,
+    `Expenses: ${formatPKR(input.expensesPaisa)}`,
+  ].join("\n");
+}
+
+/** No fixed recipient -- unlike a customer khata reminder, a daily summary has no single "send to"
+ * phone number, so the phone segment of the wa.me URL is left empty. This opens WhatsApp's own
+ * contact/group picker with the text prefilled, exactly like sharing any other link. */
+export function buildWhatsAppDailySummaryUrl(input: DailySummaryInput): string {
+  const text = encodeURIComponent(buildDailySummaryText(input));
+  return `https://wa.me/?text=${text}`;
 }

@@ -23,7 +23,8 @@ const NAV_ITEMS: { href: string; label: string; permission: string | null }[] = 
   { href: "/suppliers", label: "Suppliers", permission: "suppliers.manage" },
   { href: "/customers", label: "Customers", permission: "customers.manage" },
   { href: "/expenses", label: "Expenses", permission: "expenses.manage" },
-  { href: "/reports/cash-book", label: "Cash book", permission: "reports.view" },
+  { href: "/reports/sales", label: "Reports", permission: "reports.view" },
+  { href: "/audit", label: "Audit log", permission: "audit.view" },
   { href: "/staff", label: "Staff", permission: "users.manage" },
   { href: "/counter", label: "Counter", permission: null },
 ];

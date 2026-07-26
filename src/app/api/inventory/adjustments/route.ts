@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getActingUserContext } from "@/lib/permissions";
 import { stockAdjustmentSchema } from "@/lib/validation";
+import { writeAuditLog } from "@/lib/audit";
 
 export const runtime = "nodejs";
 
@@ -28,7 +29,7 @@ export async function POST(request: Request) {
   // it -- the admin client bypasses RLS, so this has to be checked explicitly here.
   const { data: product } = await admin
     .from("products")
-    .select("id")
+    .select("id, name_en, current_stock")
     .eq("id", parsed.data.productId)
     .eq("tenant_id", context.tenantId)
     .maybeSingle();
@@ -56,6 +57,24 @@ export async function POST(request: Request) {
     .select("current_stock")
     .eq("id", parsed.data.productId)
     .single();
+
+  // Stock adjustments (damage/theft/wastage/count-correction) are exactly the class of event an
+  // owner needs a trail on -- unlike a sale, nothing else records who moved this stock or why.
+  await writeAuditLog(admin, context, {
+    action: "stock.adjust",
+    entityType: "product",
+    entityId: parsed.data.productId,
+    summary: `Adjusted ${product.name_en} by ${
+      parsed.data.quantityDelta >= 0 ? "+" : ""
+    }${parsed.data.quantityDelta} (${parsed.data.reasonCode})`,
+    beforeData: { currentStock: product.current_stock },
+    afterData: {
+      currentStock: updated?.current_stock,
+      quantityDelta: parsed.data.quantityDelta,
+      reasonCode: parsed.data.reasonCode,
+      note: parsed.data.note || null,
+    },
+  });
 
   return NextResponse.json({ success: true, currentStock: updated?.current_stock });
 }

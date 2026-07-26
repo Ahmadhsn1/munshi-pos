@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getActingUserContext } from "@/lib/permissions";
 import { hashPin, verifyPin } from "@/lib/pin";
 import { staffCreateSchema } from "@/lib/validation";
+import { writeAuditLog } from "@/lib/audit";
 
 // Uses the service-role client and Node's crypto -- must run on the Node.js runtime, not Edge.
 export const runtime = "nodejs";
@@ -102,6 +103,17 @@ export async function POST(request: Request) {
     await admin.auth.admin.deleteUser(created.user.id);
     return NextResponse.json({ error: "Failed to create staff profile" }, { status: 400 });
   }
+
+  // A new staff account is a standing grant of whatever that role can do -- for owner/manager
+  // that includes creating MORE staff accounts, which is exactly the kind of self-reinforcing
+  // change an audit trail exists to make visible.
+  await writeAuditLog(admin, context, {
+    action: "staff.create",
+    entityType: "user",
+    entityId: created.user.id,
+    summary: `Created ${input.roleKey} account for ${input.fullName}`,
+    afterData: { roleKey: input.roleKey, fullName: input.fullName },
+  });
 
   return NextResponse.json({ success: true });
 }

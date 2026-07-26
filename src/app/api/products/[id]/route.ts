@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getActingUserContext } from "@/lib/permissions";
-import { toPaisa } from "@/lib/money";
+import { toPaisa, formatPKR } from "@/lib/money";
 import { toBps } from "@/lib/tax";
 import { productUpdateSchema } from "@/lib/validation";
+import { writeAuditLog } from "@/lib/audit";
 
 export const runtime = "nodejs";
 
@@ -72,6 +73,19 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const admin = createAdminClient();
 
+  // Read the pre-update sale price when it's about to change -- this is what makes the audit
+  // entry a before/after rather than just an after, and price is the one field here a cashier
+  // relies on being trustworthy at the counter.
+  const { data: before } =
+    salePriceRupees !== undefined
+      ? await admin
+          .from("products")
+          .select("name_en, sale_price_paisa")
+          .eq("id", id)
+          .eq("tenant_id", context.tenantId)
+          .maybeSingle()
+      : { data: null };
+
   // Scoped by both id AND the caller's own validated tenant_id -- never trust the URL param
   // alone, or a guessed product id from another tenant could be modified via the admin client.
   const { data, error } = await admin
@@ -88,6 +102,17 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   if (!data) {
     return NextResponse.json({ error: "Product not found" }, { status: 404 });
+  }
+
+  if (before && typeof update.sale_price_paisa === "number" && before.sale_price_paisa !== update.sale_price_paisa) {
+    await writeAuditLog(admin, context, {
+      action: "product.price_change",
+      entityType: "product",
+      entityId: id,
+      summary: `Changed ${before.name_en} price from ${formatPKR(before.sale_price_paisa)} to ${formatPKR(update.sale_price_paisa)}`,
+      beforeData: { salePricePaisa: before.sale_price_paisa },
+      afterData: { salePricePaisa: update.sale_price_paisa },
+    });
   }
 
   return NextResponse.json({ success: true });

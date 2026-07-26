@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { formatPKR } from "@/lib/money";
 import { businessToday, defaultReportRange, resolveReportRange } from "@/lib/reports";
 import { ReportRangePicker } from "../report-range-picker";
+import { ReportNav } from "../report-nav";
 
 interface CashBookRow {
   business_day: string;
@@ -80,6 +81,7 @@ export default async function CashBookPage({
 
   return (
     <div className="flex flex-col gap-6">
+      <ReportNav current="/reports/cash-book" />
       <div>
         <h1 className="text-2xl font-semibold">Cash book</h1>
         <p className="text-muted-foreground">

@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getActingUserContext } from "@/lib/permissions";
+import { writeAuditLog } from "@/lib/audit";
+import { formatPKR } from "@/lib/money";
 
 // Void = a full return of every not-yet-returned line (reason_code='void') plus
 // sales.status='void' -- record_sale_return covers both in one RPC, no separate stock-movement
@@ -34,7 +36,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const { data: sale } = await admin
     .from("sales")
-    .select("id, status")
+    .select("id, status, invoice_number, total_paisa")
     .eq("id", id)
     .eq("tenant_id", context.tenantId)
     .maybeSingle();
@@ -101,6 +103,20 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
+
+  // Theft/error visibility is the entire reason this table exists (plan.md: "cashier-wise
+  // sales/discount/return report (theft visibility)"), and a void is the single highest-value
+  // event to have on record -- it fully reverses money the till already saw.
+  await writeAuditLog(admin, context, {
+    action: "sale.void",
+    entityType: "sale",
+    entityId: id,
+    summary: `Voided sale ${sale.invoice_number ?? id} (${formatPKR(sale.total_paisa)}): ${
+      parsed.data.note || "no note"
+    }`,
+    beforeData: { status: sale.status, totalPaisa: sale.total_paisa },
+    afterData: { status: "void", note: parsed.data.note || null },
+  });
 
   return NextResponse.json({ success: true, ...data });
 }

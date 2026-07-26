@@ -184,6 +184,79 @@ with a `z.preprocess` that maps `""` to `undefined` before the coerced schema ru
 `tests/unit/opening-stock-row-schema.test.ts`. Apply the same preprocessing to any future
 optional numeric field parsed from CSV/spreadsheet input.
 
+## Phase 6: reports, cash book, expenses & audit log -- patterns established here
+
+- **Every report/cash-book RPC buckets by `public.business_date()` (Asia/Karachi), never `::date`
+  on a UTC timestamp.** `lib/reports.ts#businessToday()` is the app-code counterpart -- use it
+  anywhere "today" needs to mean the shop's calendar day, never `new Date().toISOString()`. Both
+  exist because the naive version mis-dates the first five hours of every Pakistani day (see the
+  `Known gotcha` migration `20260726000007` below); it has already caused one real bug in this
+  codebase and would happily cause another in any new report that reaches for `::date` instead.
+- **A sale/return is attributed to the business day the EVENT happened on** -- `completed_at` for a
+  sale, `created_at` for a return/void -- not the day of some related row. A return landing on a
+  later day than its original sale shows as a negative on the return's own day; this is standard
+  "gross with returns netted to the day they were returned" reporting, and matches how the cash
+  book, `get_sales_summary`, `get_product_sales` and `get_cashier_report` all already do it.
+- **A void is a full return, not a deletion -- filter on `invoice_number is not null`, never
+  `status = 'completed'`.** `record_sale_return(..., p_mark_sale_void=true)` flips `status` to
+  `'void'` while leaving the original sale row and its payments in place, and adds an
+  equal-and-opposite return. Filtering on status silently drops the original cash-in/revenue while
+  the offsetting return sits uncounted by the same filter -- net effect: revenue/cash understated
+  by the voided amount with no correction, which is *worse* than double-counting because nothing
+  about it looks wrong. `invoice_number` is only ever set by `complete_sale()`, so its presence is
+  proof the sale genuinely went through the till regardless of current status. Verified against a
+  real void in `tests/rls/reports-reconciliation.test.ts` -- assert the *net* is what you expect,
+  not just that a filter excludes something.
+- **Margin/COGS reports use `stock_ledger.unit_cost_paisa` (the historical cost snapshot stamped at
+  sale time, see `20260725000058`), never `products.avg_cost_paisa`** (today's average) -- the
+  latter silently misstates every past sale's margin the moment cost ever changes.
+  `get_stock_valuation` is the deliberate exception: valuing stock CURRENTLY on the shelf at
+  TODAY's average cost is the correct question there, a different question from "what did stock
+  we've since sold cost us."
+- **Two report-shape gotchas that look like bugs but aren't, both documented via `comment on
+  function` in the DB itself (not just the migration file) so they surface in any tool that
+  inspects the function directly:** (1) `get_sales_summary.revenue_paisa` is tax-INCLUSIVE
+  (`sales.total_paisa`) while `get_product_sales.revenue_paisa` is tax-EXCLUSIVE
+  (`quantity * unit_price_paisa`, since `tax_paisa` is a separate per-line column never folded in)
+  -- they will never sum to the same total, by construction, not by bug. Label UI columns
+  explicitly ("incl. tax" / "excl. tax") rather than just "Revenue". (2) A cash khata payment or a
+  cash expense only affects a shift's expected-cash reconciliation when it carries that shift's
+  `shift_id` -- both columns are nullable and cash-only (DB check constraint), because cash paid
+  from the office safe/owner's pocket is real cash but must not move a cashier's drawer total and
+  manufacture a shortage they didn't cause. `lib/shifts.ts#findOpenShiftIdForUser` is the one place
+  that resolves "does this belong to a shift" -- reuse it rather than re-deriving the shift lookup.
+- **`audit_log` writes go through `lib/audit.ts#writeAuditLog()` and NEVER throw.** A failed audit
+  insert must not roll back or reject the business operation that triggered it -- refusing to
+  complete a sale because a logging write failed would strand a real customer over a missing log
+  line, which is a far worse outcome. Failures are logged to the server console instead of
+  swallowed silently (silent failure is exactly how the test-cleanup bug went unnoticed for five
+  phases -- see the Testing section below). Every mutation that moves money or stock outside the
+  normal sale flow should call it: sale void/return, stock adjustment, a product's sale-price
+  change, a customer's credit-limit/blacklist change, staff account creation. Records BOTH the
+  acting identity (`actor_user_id` -- who actually did it, e.g. the cashier PIN'd in at the
+  counter) and the session identity (`session_user_id` -- whose real login the device runs under);
+  a log with only one of them cannot answer the question it exists to answer. Append-only by
+  construction -- this module exposes no update/delete path, matching `stock_ledger`'s discipline.
+- **`reports.view` is one flat permission covering every report screen, `audit.view` is
+  owner-only.** There is no roadmap scenario where someone may see the sales report but not the
+  margin report -- the thing that actually needs hiding (cost/margin from a cashier) is already its
+  own key, `cost_price.view`. A manager holds `reports.view` and `expenses.manage` but NOT
+  `audit.view`: a manager can already void sales, apply discounts and adjust stock, so they sit
+  *inside* the trust boundary the audit log exists to police -- letting them read it would let the
+  person most able to cause a discrepancy also confirm exactly what was recorded about them. This
+  is enforced twice, redundantly on purpose: the permission check in every route/page, AND
+  `audit_log` having no client-readable RLS policy at all (`20260726100006_audit_log.sql`) --
+  belt-and-braces, matching the two-layer approach `cost_price.view` also needed once it turned out
+  a permission seeded since Phase 1 had never actually been checked anywhere (see the
+  acting-identity note earlier in this file).
+- **Expense categories are tenant-scoped and fully editable, following the `units` precedent, not a
+  fixed list.** Deactivate-only (never hard delete) -- `expenses.category_id` is
+  `on delete restrict`, so a real delete would fail once used or orphan financial history;
+  deactivating hides it from the entry form while every past expense keeps its real label in
+  reports. Re-adding a previously-removed category REACTIVATES the existing row rather than
+  failing "already exists" for a name the user cannot see anywhere, and rebuilds via `.ilike("key",
+  ...)` since the uniqueness index is on `lower(key)`.
+
 ## Local dev tooling note (Windows)
 
 The Supabase CLI does not support `npm install`/`npx` on Windows (intentionally disabled upstream
