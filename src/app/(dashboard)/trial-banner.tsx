@@ -30,9 +30,7 @@ export function TrialBanner({ trialEndsAt }: { trialEndsAt: string }) {
   return (
     <div
       className={`flex items-center justify-between border-b px-6 py-2 text-sm ${
-        expired
-          ? "bg-destructive/10 text-destructive"
-          : "bg-amber-50 text-amber-900 dark:bg-amber-950 dark:text-amber-100"
+        expired ? "bg-debt-soft text-debt" : "bg-gold-soft text-gold-foreground"
       }`}
     >
       <span>
