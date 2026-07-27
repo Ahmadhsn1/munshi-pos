@@ -146,10 +146,5 @@ in this plan — separate future engagement.
 
 ## 5. Execution Order
 
-Build one phase at a time, in order, phase by phase —
-don't start the next phase early. After each phase, run its testing checklist before
-moving to the next. Phase 1 scope:
-
-> Scaffold Phase 1: Next.js 15 + TypeScript + Tailwind + shadcn/ui
-> project, Supabase schema for tenants/users/roles/permissions with RLS policies, phone/email
-> auth, and PIN-based cashier login. Include a test that verifies cross-tenant data isolation.
+Build one phase at a time, in order, phase by phase — don't start a later phase until the current
+one is complete and tested. After each phase, run its testing checklist before moving to the next.

@@ -22,9 +22,7 @@ rules, RLS pattern, known gotchas).
    - Point at a real Supabase project (Cloud, free tier is fine) and apply
      `supabase/migrations/*.sql` in order, then `supabase/seed.sql`, via the SQL editor or the
      Supabase CLI (`.tools/supabase.exe db push`, needs Docker for `db reset`/local dev — see
-     `.tools/README.md`), **or**
-   - Use `apply_migration` MCP tool calls in order if working with an AI assistant that has
-     Supabase MCP access (this is how Phase 1 was actually built/tested).
+     `.tools/README.md`).
 
 4. **Run it**
    ```
