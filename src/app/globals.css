@@ -39,6 +39,20 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  /* Design-system additions (redesign): gold is a sparing highlight/value accent (low-stock
+     warnings, ledger-gold emphasis); debt is the khata/udhaar-owed semantic, deliberately separate
+     from --destructive (which existing Void/Delete buttons already use for a different meaning --
+     "this action is destructive" vs "this customer owes money"). Conflating the two would make a
+     harmless red khata pill visually shout "danger" as loud as an irreversible void action. */
+  --color-gold: var(--gold);
+  --color-gold-foreground: var(--gold-foreground);
+  --color-gold-soft: var(--gold-soft);
+  --color-debt: var(--debt);
+  --color-debt-foreground: var(--debt-foreground);
+  --color-debt-soft: var(--debt-soft);
+  /* A third, fainter text tier beyond shadcn's default foreground/muted-foreground pair -- used for
+     inactive nav icons and low-emphasis captions where even muted-foreground reads too heavy. */
+  --color-ink-faint: var(--ink-faint);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -48,73 +62,101 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* Redesign palette. Grounded in the Pakistani ledger-book (khata) tradition rather than a generic
+   SaaS blue/grayscale: red ink has marked money OWED and black/green ink has marked money SETTLED
+   in shopkeepers' registers for generations -- --debt and --primary lean into that directly rather
+   than an arbitrary semantic-color choice. Light and dark are NOT the same hue shifted for
+   contrast: light keeps the emerald "ledger" identity throughout, dark deliberately moves to a
+   navy/indigo base -- picked by side-by-side comparison against warm-charcoal and bold-forest-green
+   alternatives, not assumed. Exact hex values (not this file's earlier oklch convention) because
+   these were validated pixel-for-pixel in an approved preview first -- hand-converting to oklch
+   risked silently drifting from what was actually signed off.
+   Neutrals carry a warm bias (light) or a cool navy bias (dark) rather than defaulting to pure
+   grayscale. --primary in dark mode is a deliberately different, more saturated indigo (#5865F2)
+   than the lighter one used for text/accents (#8B95FA): the lighter shade reads beautifully as text
+   on the dark navy surface but fails white-text contrast as a solid button fill, so button
+   backgrounds and text-on-dark accents use two distinct values on purpose. */
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
+  --background: #FBFAF5;
+  --foreground: #1A2A20;
+  --card: #FFFFFF;
+  --card-foreground: #1A2A20;
+  --popover: #FFFFFF;
+  --popover-foreground: #1A2A20;
+  --primary: #0E6E52;
+  --primary-foreground: #FFFFFF;
+  --secondary: #F4F3EA;
+  --secondary-foreground: #1A2A20;
+  --muted: #F4F3EA;
+  --muted-foreground: #56685B;
+  --accent: #E7F2EC;
+  --accent-foreground: #0A4F3B;
+  --destructive: #DC2626;
+  --border: #E9E6D6;
+  --input: #E9E6D6;
+  --ring: #0E6E52;
+  --ink-faint: #8B9788;
+  --gold: #B8811F;
+  --gold-foreground: #1A2A20;
+  --gold-soft: #FAF1DC;
+  --debt: #B23A2E;
+  --debt-foreground: #FFFFFF;
+  --debt-soft: #FBEAE6;
+  --chart-1: #0E6E52;
+  --chart-2: #B8811F;
+  --chart-3: #B23A2E;
+  --chart-4: #56685B;
+  --chart-5: #8B9788;
   --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #1A2A20;
+  --sidebar-primary: #0E6E52;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #E7F2EC;
+  --sidebar-accent-foreground: #0A4F3B;
+  --sidebar-border: #E9E6D6;
+  --sidebar-ring: #0E6E52;
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: #0B0E1A;
+  --foreground: #E7E9F5;
+  --card: #141A2C;
+  --card-foreground: #E7E9F5;
+  --popover: #141A2C;
+  --popover-foreground: #E7E9F5;
+  --primary: #5865F2;
+  --primary-foreground: #FFFFFF;
+  --secondary: #182036;
+  --secondary-foreground: #E7E9F5;
+  --muted: #182036;
+  --muted-foreground: #8B90B3;
+  --accent: #1E2444;
+  --accent-foreground: #8B95FA;
+  --destructive: #F87171;
+  --border: #232C48;
+  --input: #232C48;
+  --ring: #5865F2;
+  --ink-faint: #5A5F82;
+  --gold: #E3B563;
+  --gold-foreground: #1A2A20;
+  --gold-soft: #2B2417;
+  --debt: #E0785A;
+  --debt-foreground: #1A2A20;
+  --debt-soft: #33231C;
+  --chart-1: #5865F2;
+  --chart-2: #E3B563;
+  --chart-3: #E0785A;
+  --chart-4: #8B90B3;
+  --chart-5: #5A5F82;
+  --sidebar: #141A2C;
+  --sidebar-foreground: #E7E9F5;
+  --sidebar-primary: #5865F2;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #1E2444;
+  --sidebar-accent-foreground: #8B95FA;
+  --sidebar-border: #232C48;
+  --sidebar-ring: #5865F2;
 }
 
 @layer base {

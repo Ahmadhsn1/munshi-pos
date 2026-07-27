@@ -3,33 +3,15 @@ import Link from "next/link";
 import { getActingUserContext } from "@/lib/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { LogoutButton } from "@/components/logout-button";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { TrialBanner } from "./trial-banner";
+import { SidebarNav } from "./sidebar-nav";
+import { MobileNav } from "./mobile-nav";
 
-// Nav is driven by the ACTING user's permissions, not the session user's. While a cashier is PIN'd
-// in at the counter the device is still running on the owner's Supabase session, so a
-// session-derived nav would advertise Staff/Purchases/Suppliers to them -- every one of which the
-// route layer now refuses anyway. Hiding what the acting user cannot use turns a confusing wall of
-// 403s into a coherent screen, and keeps the UI and API layers telling the same story (plan.md
-// Phase 6: "enforced at both UI and API layer").
-//
-// `permission: null` means "anyone signed in". /counter is deliberately open to everyone: it is
-// how a cashier ends their own counter session and hands the device back.
-const NAV_ITEMS: { href: string; label: string; permission: string | null }[] = [
-  { href: "/dashboard", label: "Dashboard", permission: null },
-  { href: "/pos", label: "Sell", permission: "sales.create" },
-  { href: "/pos/sales", label: "Sales", permission: "sales.create" },
-  { href: "/products", label: "Products", permission: "products.view" },
-  { href: "/categories", label: "Categories", permission: "products.manage" },
-  { href: "/inventory", label: "Inventory", permission: "inventory.view" },
-  { href: "/purchases", label: "Purchases", permission: "purchases.manage" },
-  { href: "/suppliers", label: "Suppliers", permission: "suppliers.manage" },
-  { href: "/customers", label: "Customers", permission: "customers.manage" },
-  { href: "/expenses", label: "Expenses", permission: "expenses.manage" },
-  { href: "/reports/sales", label: "Reports", permission: "reports.view" },
-  { href: "/audit", label: "Audit log", permission: "audit.view" },
-  { href: "/staff", label: "Staff", permission: "users.manage" },
-  { href: "/counter", label: "Counter", permission: null },
-];
+function initials(fullName: string): string {
+  const parts = fullName.trim().split(/\s+/);
+  return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase() || "?";
+}
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   // Defense in depth: middleware already redirects unauthenticated requests to /login before this
@@ -41,13 +23,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
     redirect("/login");
   }
 
-  const visibleNav = NAV_ITEMS.filter(
-    (item) => item.permission === null || context.permissions.has(item.permission),
-  );
-
   // Only fetched/shown for a real owner/manager session, never during a counter/cashier session --
   // subscription/billing status is a back-office concern a cashier ringing up sales has no need to
-  // see, matching the same reasoning as hiding Staff/Purchases/etc. from them in the nav above.
+  // see, matching the same reasoning as hiding Staff/Purchases/etc. from them in the nav below.
   let trialEndsAt: string | null = null;
   if (!context.isCounterSession) {
     const supabase = await createClient();
@@ -67,7 +45,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         // how an owner forgets the counter is still handed over and walks away from a logged-in
         // device -- and how a cashier fails to realise their actions are being attributed to them
         // by name in the audit log.
-        <div className="flex items-center justify-between border-b bg-amber-50 px-6 py-2 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-100">
+        <div className="bg-gold-soft text-gold-foreground flex items-center justify-between border-b px-6 py-2 text-sm">
           <span>
             Counter mode — <strong>{context.fullName}</strong> ({context.roleName}) is at the
             counter. Actions are recorded under this name.
@@ -77,27 +55,49 @@ export default async function DashboardLayout({ children }: { children: React.Re
           </Link>
         </div>
       )}
-      <header className="flex items-center justify-between border-b px-6 py-3">
-        <div className="flex items-center gap-6">
-          <Link href="/dashboard" className="font-semibold">
-            {context.tenantName}
+
+      <div className="flex flex-1">
+        <aside className="bg-sidebar border-sidebar-border hidden w-60 shrink-0 flex-col gap-6 overflow-y-auto border-r p-3.5 md:flex">
+          <Link href="/dashboard" className="border-sidebar-border flex items-center gap-2.5 border-b px-1 pb-3.5">
+            <div className="bg-primary text-primary-foreground flex size-7 shrink-0 items-center justify-center rounded-md font-serif text-sm font-bold">
+              {context.tenantName.trim().charAt(0).toUpperCase() || "S"}
+            </div>
+            <div className="min-w-0 leading-tight">
+              <div className="truncate text-[13.5px] font-semibold">{context.tenantName}</div>
+              <div className="text-ink-faint truncate text-[11px]">
+                {context.roleName} · {context.fullName}
+              </div>
+            </div>
           </Link>
-          <nav className="text-muted-foreground flex flex-wrap gap-4 text-sm">
-            {visibleNav.map((item) => (
-              <Link key={item.href} href={item.href} className="hover:text-foreground">
-                {item.label}
+
+          <SidebarNav permissions={[...context.permissions]} />
+        </aside>
+
+        <div className="flex min-w-0 flex-1 flex-col">
+          <header className="bg-card flex items-center justify-between border-b px-5 py-2.5">
+            <div className="flex items-center gap-2">
+              <MobileNav permissions={[...context.permissions]} />
+              {/* Tenant name repeated here (collapsed on desktop, primary on mobile where the
+                  sidebar is hidden) so the shop's identity is never entirely off-screen on a small
+                  viewport. */}
+              <Link href="/dashboard" className="font-semibold md:hidden">
+                {context.tenantName}
               </Link>
-            ))}
-          </nav>
+            </div>
+            <span className="text-muted-foreground hidden text-[13px] md:inline">
+              {context.fullName} · {context.roleName}
+            </span>
+            <div className="flex items-center gap-2">
+              <ThemeToggle />
+              <div className="bg-gold-soft text-gold flex size-7 items-center justify-center rounded-full text-[11px] font-bold">
+                {initials(context.fullName)}
+              </div>
+              <LogoutButton />
+            </div>
+          </header>
+          <main className="flex-1 p-6">{children}</main>
         </div>
-        <div className="flex items-center gap-3 text-sm">
-          <span className="text-muted-foreground">
-            {context.fullName} · {context.roleName}
-          </span>
-          <LogoutButton />
-        </div>
-      </header>
-      <main className="flex-1 p-6">{children}</main>
+      </div>
     </div>
   );
 }
