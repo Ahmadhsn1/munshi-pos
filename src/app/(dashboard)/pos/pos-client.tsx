@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { SearchIcon, XIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -256,7 +257,7 @@ export function PosClient({
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-semibold">Counter</h1>
+          <h1 className="font-serif text-2xl font-semibold">Sell</h1>
           <p className="text-muted-foreground text-sm">{cashierName}</p>
         </div>
         <div className="flex gap-2">
@@ -265,140 +266,180 @@ export function PosClient({
         </div>
       </div>
 
-      <Card>
-        <CardContent className="flex flex-col gap-2">
-          <Input
-            ref={searchRef}
-            value={query}
-            onChange={(e) => {
-              setQuery(e.target.value);
-              runSearch(e.target.value);
-            }}
-            onKeyDown={handleSearchKeyDown}
-            placeholder="Scan a barcode or search by name..."
-            autoComplete="off"
-          />
-          {results.length > 0 && (
-            <div className="flex flex-col gap-1 rounded border">
-              {results.map((product) => (
-                <button
-                  key={product.id}
-                  type="button"
-                  className="hover:bg-muted flex items-center justify-between px-3 py-2 text-left text-sm"
-                  onClick={() => addProduct(product)}
-                >
-                  <span>
-                    {product.name_en}
-                    {product.name_ur && <span className="text-muted-foreground ml-2" dir="rtl">{product.name_ur}</span>}
-                  </span>
-                  <span className="text-muted-foreground">
-                    {formatPKR(product.sale_price_paisa)} · {product.current_stock} in stock
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Cart</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Item</TableHead>
-                <TableHead>Qty</TableHead>
-                <TableHead>Price</TableHead>
-                {canDiscount && <TableHead>Discount</TableHead>}
-                <TableHead>Line total</TableHead>
-                <TableHead></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {lines.map((line) => (
-                <TableRow key={line.productId}>
-                  <TableCell>{line.nameEn}</TableCell>
-                  <TableCell>
-                    {/* The unit label matters most for loose goods sold by weight (daal, aata,
-                        chawal) -- a bare "500" in this box is ambiguous, "500 g" is not. It was
-                        already being resolved into CartLine.unitName but never rendered. */}
-                    <div className="flex items-center gap-1.5">
-                      <Input
-                        type="number"
-                        min={1}
-                        className="w-16"
-                        value={line.quantity}
-                        onChange={(e) => updateQuantity(line.productId, Number(e.target.value))}
-                      />
-                      {line.unitName && (
-                        <span className="text-muted-foreground text-xs">{line.unitName}</span>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>{formatPKR(line.unitPricePaisa)}</TableCell>
-                  {canDiscount && (
-                    <TableCell>
-                      <Input
-                        type="number"
-                        min={0}
-                        className="w-20"
-                        value={line.lineDiscountPaisa / 100}
-                        onChange={(e) =>
-                          updateLineDiscount(line.productId, Math.round(Number(e.target.value) * 100) || 0)
-                        }
-                      />
-                    </TableCell>
-                  )}
-                  <TableCell>
-                    {formatPKR(line.unitPricePaisa * line.quantity - line.lineDiscountPaisa)}
-                  </TableCell>
-                  <TableCell>
-                    <Button variant="ghost" size="sm" onClick={() => removeLine(line.productId)}>
-                      Remove
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {lines.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={canDiscount ? 6 : 5} className="text-muted-foreground text-center">
-                    Cart is empty -- scan or search for a product.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardContent className="flex flex-wrap items-center justify-between gap-4">
-          <CustomerPicker selected={customer} onSelect={setCustomer} />
-
-          <div className="flex items-center gap-4">
-            <div className="text-right">
-              <div className="text-muted-foreground text-sm">
-                Subtotal {formatPKR(subtotalPaisa)}
-                {discountPaisa > 0 && ` -${formatPKR(discountPaisa)} discount`}
+      {/* Two-pane till: search + cart on the left (the wider working area), a sticky order-total
+          panel on the right -- same real-time totals, permanently visible instead of scrolled past
+          once the cart grows past a few lines. This is a layout change only; every handler above
+          (search, add, quantity/discount edits, hold, checkout, recall) is untouched. */}
+      <div className="grid gap-4 lg:grid-cols-[1fr_340px] lg:items-start">
+        <div className="flex flex-col gap-4">
+          <Card>
+            <CardContent className="flex flex-col gap-2">
+              <div className="relative">
+                <SearchIcon className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
+                <Input
+                  ref={searchRef}
+                  value={query}
+                  onChange={(e) => {
+                    setQuery(e.target.value);
+                    runSearch(e.target.value);
+                  }}
+                  onKeyDown={handleSearchKeyDown}
+                  placeholder="Scan a barcode or search by name..."
+                  autoComplete="off"
+                  className="pl-9"
+                />
               </div>
-              <div className="text-lg font-semibold">{formatPKR(subtotalPaisa - discountPaisa)}</div>
+              {results.length > 0 && (
+                <div className="divide-border flex flex-col divide-y rounded-md border">
+                  {results.map((product) => (
+                    <button
+                      key={product.id}
+                      type="button"
+                      className="hover:bg-muted flex items-center justify-between px-3 py-2.5 text-left text-sm transition-colors"
+                      onClick={() => addProduct(product)}
+                    >
+                      <span>
+                        {product.name_en}
+                        {product.name_ur && (
+                          <span className="text-muted-foreground ml-2" dir="rtl">
+                            {product.name_ur}
+                          </span>
+                        )}
+                      </span>
+                      <span className="text-muted-foreground shrink-0 pl-3 tabular-nums">
+                        {formatPKR(product.sale_price_paisa)} · {product.current_stock} in stock
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Cart</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Item</TableHead>
+                    <TableHead>Qty</TableHead>
+                    <TableHead>Price</TableHead>
+                    {canDiscount && <TableHead>Discount</TableHead>}
+                    <TableHead>Line total</TableHead>
+                    <TableHead></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {lines.map((line) => (
+                    <TableRow key={line.productId}>
+                      <TableCell>{line.nameEn}</TableCell>
+                      <TableCell>
+                        {/* The unit label matters most for loose goods sold by weight (daal, aata,
+                            chawal) -- a bare "500" in this box is ambiguous, "500 g" is not. It was
+                            already being resolved into CartLine.unitName but never rendered. */}
+                        <div className="flex items-center gap-1.5">
+                          <Input
+                            type="number"
+                            min={1}
+                            className="w-16"
+                            value={line.quantity}
+                            onChange={(e) => updateQuantity(line.productId, Number(e.target.value))}
+                          />
+                          {line.unitName && (
+                            <span className="text-muted-foreground text-xs">{line.unitName}</span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="tabular-nums">{formatPKR(line.unitPricePaisa)}</TableCell>
+                      {canDiscount && (
+                        <TableCell>
+                          <Input
+                            type="number"
+                            min={0}
+                            className="w-20"
+                            value={line.lineDiscountPaisa / 100}
+                            onChange={(e) =>
+                              updateLineDiscount(line.productId, Math.round(Number(e.target.value) * 100) || 0)
+                            }
+                          />
+                        </TableCell>
+                      )}
+                      <TableCell className="font-medium tabular-nums">
+                        {formatPKR(line.unitPricePaisa * line.quantity - line.lineDiscountPaisa)}
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={`Remove ${line.nameEn}`}
+                          onClick={() => removeLine(line.productId)}
+                        >
+                          <XIcon />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {lines.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={canDiscount ? 6 : 5} className="text-muted-foreground text-center">
+                        Cart is empty -- scan or search for a product.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+
+          <Badge variant="outline" className="w-fit">
+            Barcode scanner: click the search box, scan -- it types + Enter automatically.
+          </Badge>
+        </div>
+
+        {/* Sticky on large screens so the running total stays visible while scrolling a long cart;
+            falls back to normal document flow below the cart on narrow viewports. */}
+        <Card className="lg:sticky lg:top-4">
+          <CardHeader>
+            <CardTitle>Current bill</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            <CustomerPicker selected={customer} onSelect={setCustomer} />
+
+            <div className="flex flex-col gap-1 border-t pt-3 text-sm">
+              <div className="text-muted-foreground flex justify-between">
+                <span>Subtotal</span>
+                <span className="tabular-nums">{formatPKR(subtotalPaisa)}</span>
+              </div>
+              {discountPaisa > 0 && (
+                <div className="text-muted-foreground flex justify-between">
+                  <span>Discount</span>
+                  <span className="tabular-nums">−{formatPKR(discountPaisa)}</span>
+                </div>
+              )}
+              <div className="flex justify-between border-t pt-2 font-serif text-lg font-semibold">
+                <span>Total</span>
+                <span className="tabular-nums">{formatPKR(subtotalPaisa - discountPaisa)}</span>
+              </div>
             </div>
-            <Button
-              variant="outline"
-              disabled={saving || lines.length === 0}
-              onClick={() => setHoldDialogOpen(true)}
-            >
-              Hold
-            </Button>
-            <Button disabled={saving || lines.length === 0} onClick={handleOpenCheckout}>
-              Checkout
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+
+            <div className="flex flex-col gap-2">
+              <Button disabled={saving || lines.length === 0} onClick={handleOpenCheckout} size="lg">
+                Checkout
+              </Button>
+              <Button
+                variant="outline"
+                disabled={saving || lines.length === 0}
+                onClick={() => setHoldDialogOpen(true)}
+              >
+                Hold bill
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       <Dialog open={holdDialogOpen} onOpenChange={setHoldDialogOpen}>
         <DialogContent className="max-w-sm">
@@ -439,10 +480,6 @@ export function PosClient({
           }}
         />
       )}
-
-      <Badge variant="outline" className="w-fit">
-        Barcode scanner: click the search box, scan -- it types + Enter automatically.
-      </Badge>
     </div>
   );
 }
