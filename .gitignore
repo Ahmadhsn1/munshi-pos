@@ -38,7 +38,7 @@ yarn-error.log*
 .vercel
 
 # downloaded local tooling (supabase CLI binary -- npm install doesn't support Windows, see
-# AGENTS.md); not source, don't commit ~220MB of binaries
+# ENGINEERING.md); not source, don't commit ~220MB of binaries
 /.tools/
 
 # typescript

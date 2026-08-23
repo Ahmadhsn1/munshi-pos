@@ -8,7 +8,7 @@ export const runtime = "nodejs";
 // Every tenant-scoped table (see tests/rls/rls-enabled.test.ts, which is the canonical list this
 // mirrors -- add a new table there AND here). `users` is deliberately excluded: it carries
 // pin_hash/pin_salt, which are additionally locked down with column-level REVOKE/GRANT (see
-// AGENTS.md) specifically so no authenticated client can ever read them -- a backup export must
+// ENGINEERING.md) specifically so no authenticated client can ever read them -- a backup export must
 // not become the one path that defeats that. A shopkeeper's actual backup need (products,
 // customers, sales, purchases, the full khata/ledger history) has nothing to do with staff
 // credentials anyway.
@@ -39,6 +39,12 @@ const TENANT_SCOPED_TABLES = [
   "expense_categories",
   "expenses",
   "audit_log",
+  // Phase 8 (platform admin panel). Both have no client RLS read policy of their own, same as
+  // audit_log above -- included here anyway for the same reason audit_log is: this backup is
+  // "the single most complete export the app can produce", a strictly higher trust bar than any
+  // individual report or the tenant's own in-app inbox view.
+  "notification_log",
+  "in_app_notifications",
 ] as const;
 
 /**

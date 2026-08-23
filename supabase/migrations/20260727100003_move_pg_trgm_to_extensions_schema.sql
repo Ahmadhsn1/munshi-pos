@@ -1,5 +1,5 @@
--- Advisor finding (extension_in_public), caught by running get_advisors right after the previous
--- migration per AGENTS.md's standing rule to check advisors after DDL: pg_trgm was installed into
+-- Advisor finding (extension_in_public), caught by running the Security Advisor right after the previous
+-- migration per ENGINEERING.md's standing rule to check advisors after DDL: pg_trgm was installed into
 -- `public`, which Supabase's linter flags -- extensions bring their own operators/functions into
 -- whatever schema they're installed in, and `public` is the one schema every client role can
 -- already see into, so keeping extensions out of it is documented best practice.

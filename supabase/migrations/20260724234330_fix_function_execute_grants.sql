@@ -1,7 +1,7 @@
 -- Supabase's default `ALTER DEFAULT PRIVILEGES` setup grants EXECUTE on every new function in
 -- the public schema to anon/authenticated/service_role, separately from the PUBLIC pseudo-role.
 -- Revoking only from PUBLIC (as the original migrations did) left anon/authenticated still able
--- to call these directly via PostgREST RPC -- confirmed by get_advisors. Closing that gap here.
+-- to call these directly via PostgREST RPC -- confirmed by the Security Advisor. Closing that gap here.
 
 -- bootstrap_tenant: must be service_role only. If anon/authenticated could call this, any
 -- unauthenticated visitor could mint an arbitrary tenant and attach an arbitrary existing

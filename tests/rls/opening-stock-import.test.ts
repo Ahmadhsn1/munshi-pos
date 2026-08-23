@@ -39,7 +39,7 @@ function buildRow(row: number, overrides: Record<string, unknown> = {}) {
 
 // Exercises the "1000+ rows without failure" requirement directly at the import_opening_stock
 // RPC level (fast, deterministic) rather than driving a real multipart HTTP upload from Vitest --
-// see AGENTS.md/the Phase 2 plan for why the HTTP wiring path is a manual QA item instead.
+// see ENGINEERING.md/the Phase 2 plan for why the HTTP wiring path is a manual QA item instead.
 describe("import_opening_stock: 1000+ row batch", () => {
   const admin = createAdminClient();
   let tenant: TenantFixture;

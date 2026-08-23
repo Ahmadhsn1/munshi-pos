@@ -15,8 +15,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Shop Management",
-  description: "Shop management for Pakistani retail shops",
+  title: {
+    default: "RetailFlow",
+    template: "%s · RetailFlow",
+  },
+  description:
+    "Point of sale, inventory and khata for Pakistani retail shops. Runs the counter, tracks stock in grams and paisa, and keeps every customer's udhaar straight.",
+  applicationName: "RetailFlow",
 };
 
 export default function RootLayout({

@@ -176,7 +176,7 @@ end;
 $$;
 
 -- service_role only -- same lockdown pattern as bootstrap_tenant. Revoking from PUBLIC alone is
--- not enough (see AGENTS.md's SECURITY DEFINER grant gotcha, which applies to any function here
+-- not enough (see ENGINEERING.md's SECURITY DEFINER grant gotcha, which applies to any function here
 -- regardless of SECURITY DEFINER/INVOKER -- Supabase's default privileges grant EXECUTE to
 -- anon/authenticated separately).
 revoke execute on function public.import_opening_stock(uuid, uuid, jsonb) from public;

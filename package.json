@@ -1,7 +1,35 @@
 {
-  "name": "nextapp",
-  "version": "0.1.0",
+  "name": "retailflow-saas",
+  "version": "1.0.0",
   "private": true,
+  "description": "Multi-tenant retail POS, inventory and khata (credit ledger) platform for South Asian shops. Next.js 15 + Supabase Postgres with Row Level Security.",
+  "license": "MIT",
+  "author": "Ahmad Hassan <ahmad.hsn0099@gmail.com>",
+  "homepage": "https://github.com/Ahmadhsn1/retailflow-saas#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ahmadhsn1/retailflow-saas.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Ahmadhsn1/retailflow-saas/issues"
+  },
+  "keywords": [
+    "pos",
+    "point-of-sale",
+    "inventory-management",
+    "multi-tenant",
+    "saas",
+    "row-level-security",
+    "nextjs",
+    "supabase",
+    "postgresql",
+    "typescript",
+    "retail",
+    "erp"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",

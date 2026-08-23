@@ -30,7 +30,7 @@ on public.expense_categories
 for select to authenticated
 using (tenant_id = (select public.current_tenant_id()));
 
--- Starter set for every EXISTING tenant. AGENTS.md notes that when default units were introduced,
+-- Starter set for every EXISTING tenant. ENGINEERING.md notes that when default units were introduced,
 -- pre-existing tenants were left with an empty catalog and had to hand-create their own -- that was
 -- accepted then, but it is a bad first-run experience and trivially avoidable, so this migration
 -- back-fills instead of repeating it. on conflict do nothing keeps it re-runnable.

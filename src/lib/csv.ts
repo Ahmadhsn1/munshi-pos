@@ -42,7 +42,7 @@ export function toCsv<T>(rows: T[], columns: CsvColumn<T>[]): string {
 
 /**
  * A CSV Response with a UTF-8 BOM prefix. The BOM is not optional here: this app stores real Urdu
- * product names and receipt text (absolute requirement, see AGENTS.md), and Excel on Windows --
+ * product names and receipt text (absolute requirement, see ENGINEERING.md), and Excel on Windows --
  * the shopkeeper's actual target application -- silently mis-renders UTF-8 CSVs without a BOM as
  * mojibake. Every other consumer (Sheets, LibreOffice, a text editor) already handles the BOM
  * correctly, so there is no compatibility trade-off in adding it.

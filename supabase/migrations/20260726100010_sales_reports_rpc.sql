@@ -191,7 +191,7 @@ comment on function public.get_product_sales(uuid, date, date) is
 -- Cashier-wise sales/discount/return -- plan.md's explicit "theft visibility" report. Attributed
 -- to cashier_user_id, which is the ACTING identity at the time of sale (the cashier PIN'd in at
 -- the counter, not the owner/manager device the session runs on) -- see the sales/sale_returns
--- schema and AGENTS.md's acting-vs-session note. That is what makes this report actually mean
+-- schema and ENGINEERING.md's acting-vs-session note. That is what makes this report actually mean
 -- "which staff member did this" rather than "which device".
 create or replace function public.get_cashier_report(
   p_tenant_id uuid,

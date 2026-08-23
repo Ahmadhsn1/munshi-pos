@@ -1,15 +1,22 @@
-<!-- BEGIN:nextjs-agent-rules -->
-# This is NOT the Next.js you know
+# Engineering Notes & Conventions
 
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
-<!-- END:nextjs-agent-rules -->
+> The long-form record of every non-obvious decision in this codebase, written at the moment it was
+> made — including the ones that started out as bugs. If you are changing anything that touches
+> money, stock, tenancy or authorization, read the relevant section first.
+>
+> A companion to [`README.md`](README.md) (what the system does) and [`plan.md`](plan.md) (the
+> phased build plan).
 
-# Shop Management SaaS -- Project Conventions
+## Overview
 
 Pakistan-focused shop management SaaS. Web-only: Next.js 15 (App Router, TypeScript) + Supabase
 (Postgres + Auth), Tailwind + shadcn/ui, deployed on Vercel + Supabase Cloud. Full roadmap in
-`plan.md` -- build one phase at a time, in order; do not start a later phase until the current one
-is complete and tested.
+`plan.md` -- built one phase at a time, in order; a later phase was never started until the current
+one was complete and tested.
+
+Note on Next.js 15: the App Router's APIs, conventions and file structure differ substantially from
+earlier versions. Check the relevant guide under `node_modules/next/dist/docs/` before reaching for
+a pattern from an older codebase, and heed deprecation notices.
 
 ## Absolute rules (apply from Phase 1 onward, no exceptions)
 
@@ -40,7 +47,7 @@ is complete and tested.
   setup separately grants `EXECUTE` on every new public-schema function to
   `anon`/`authenticated`/`service_role`, on top of Postgres's own default grant to `PUBLIC`. This
   bit us once already while building this phase (see the `fix_function_execute_grants` /
-  `fix_trigger_function_public_grant` migrations) -- `get_advisors` (Supabase MCP) caught it.
+  `fix_trigger_function_public_grant` migrations) -- Supabase's Security Advisor caught it.
   **Always run the security advisor after adding or changing a `SECURITY DEFINER`/trigger
   function**, and verify with:
   ```sql
@@ -114,7 +121,7 @@ As of this writing, `supabase.auth.admin.*` (createUser, deleteUser -- used by e
 signup/staff-creation route) fails against GoTrue's `/admin/*` endpoints when
 `SUPABASE_SERVICE_ROLE_KEY` is set to the new `sb_secret_...` key format: GoTrue tries to verify
 the Authorization header as a JWT and rejects it with `unrecognized JWT kid <nil> for algorithm
-ES256`. Confirmed via `get_logs(service: "auth")` while building this phase, not a guess. Use the
+ES256`. Confirmed from the project's Auth logs while building this phase, not a guess. Use the
 **legacy** service_role key (Project Settings -> API Keys -> "Legacy API Keys" -> `service_role`,
 a long `eyJ...` JWT) until this is fixed upstream. Regular PostgREST calls (`.from(...)`) work fine
 with either key format -- this only affects the GoTrue admin endpoints specifically.
@@ -170,7 +177,7 @@ never go through the page-guard's redirect. Keep `api` in the matcher's negative
   `tests/rls/rls-enabled.test.ts`, which asserts `relrowsecurity = true` for every tenant-scoped
   table by name. **Add any new tenant-scoped table's name to that test's list** -- this is what
   actually catches a migration that forgets `ENABLE ROW LEVEL SECURITY`, not a manual
-  `get_advisors` pass.
+  Security Advisor pass.
 
 ## Known gotcha: `z.coerce.number().optional()` doesn't handle a blank CSV cell
 
@@ -264,7 +271,7 @@ The Supabase CLI does not support `npm install`/`npx` on Windows (intentionally 
 downloaded directly from the GitHub release into `.tools/supabase.exe` (gitignored, ~220MB,
 `.tools/README.md` has the redownload command). If you don't have Docker/enough local disk for
 `supabase start`, developing directly against a real (even free-tier) Supabase Cloud project via
-the `apply_migration`/`execute_sql` MCP tools is a fine substitute -- that's how this phase was
+the dashboard's SQL Editor is a fine substitute -- that's how this phase was
 actually built and tested.
 
 ## Testing
@@ -314,4 +321,4 @@ actually built and tested.
   this project, not a rate limit -- stop retrying and try again later rather than hammering it.
 - Whenever you add a new tenant-scoped table, add its name to `tests/rls/rls-enabled.test.ts`'s
   table list (see "Phase 2" section above) so a migration that forgets
-  `ENABLE ROW LEVEL SECURITY` fails a test instead of waiting for a manual `get_advisors` pass.
+  `ENABLE ROW LEVEL SECURITY` fails a test instead of waiting for a manual Security Advisor pass.

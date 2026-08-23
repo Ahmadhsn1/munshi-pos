@@ -2,7 +2,7 @@
 -- (which only has API access, not a raw Postgres connection) to check whether a migration
 -- forgot `ENABLE ROW LEVEL SECURITY` on a new table. This function exposes exactly that one
 -- read-only fact (table name + RLS boolean flag, no row data) so tests/rls/rls-enabled.test.ts
--- can catch that mistake automatically instead of relying on a manual get_advisors pass.
+-- can catch that mistake automatically instead of relying on a manual Security Advisor pass.
 create or replace function public.check_rls_enabled(p_table_names text[])
 returns table (table_name text, rls_enabled boolean)
 language sql

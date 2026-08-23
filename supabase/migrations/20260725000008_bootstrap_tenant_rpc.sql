@@ -41,7 +41,7 @@ end;
 $$;
 
 -- Revoking from PUBLIC alone is not enough here either -- see the same note in
--- 20260725000005_rls_functions.sql. Confirmed via get_advisors that without the explicit
+-- 20260725000005_rls_functions.sql. Confirmed via the Security Advisor that without the explicit
 -- anon/authenticated revoke, any unauthenticated visitor could call this directly and mint an
 -- arbitrary tenant with an arbitrary existing auth.users id attached as its "owner".
 revoke execute on function public.bootstrap_tenant(uuid, text, text, text, text, text) from public;

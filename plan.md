@@ -1,4 +1,4 @@
-# Shop Management System — Complete Build Plan (Web-Only)
+# RetailFlow — Complete Build Plan (Web-Only)
 ## Pakistan kiryana/mart/wholesale management SaaS — Build Plan
 
 > No AI features. No Electron. No mobile apps. Pure web app (Next.js + Supabase), deployable free

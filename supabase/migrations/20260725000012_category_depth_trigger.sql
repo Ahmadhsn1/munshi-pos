@@ -41,7 +41,7 @@ end;
 $$;
 
 -- Revoking from PUBLIC alone is not enough -- Supabase's default privileges separately grant
--- EXECUTE to anon/authenticated on every new function (the gotcha documented in AGENTS.md).
+-- EXECUTE to anon/authenticated on every new function (the gotcha documented in ENGINEERING.md).
 revoke execute on function public.enforce_category_depth() from public;
 revoke execute on function public.enforce_category_depth() from anon, authenticated;
 

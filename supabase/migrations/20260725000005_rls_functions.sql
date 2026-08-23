@@ -16,7 +16,7 @@ $$;
 
 -- Revoking from PUBLIC alone is not enough: Supabase's default ALTER DEFAULT PRIVILEGES setup
 -- separately grants EXECUTE on new public-schema functions to anon/authenticated/service_role,
--- so anon must be revoked explicitly too (confirmed via get_advisors -- it flagged this).
+-- so anon must be revoked explicitly too (confirmed via the Security Advisor -- it flagged this).
 -- authenticated keeps EXECUTE deliberately: it's called directly by RLS policies, and is
 -- harmless to call ad-hoc since it only ever returns the caller's own tenant_id.
 revoke execute on function public.current_tenant_id() from public;

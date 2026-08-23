@@ -4,7 +4,7 @@
 -- `complete_sale` functions existed simultaneously -- the OLD 5-arg version (still callable,
 -- completely bypassing the new khata enforcement) and the NEW 6-arg version (which, being a
 -- genuinely new function object, got Supabase's default ALTER DEFAULT PRIVILEGES grant of
--- EXECUTE to anon/authenticated -- the exact documented gotcha in AGENTS.md: revoking from
+-- EXECUTE to anon/authenticated -- the exact documented gotcha in ENGINEERING.md: revoking from
 -- PUBLIC alone is not enough, anon/authenticated get their own separate grant).
 --
 -- Fix: drop the old 5-arg overload outright (nothing should call it -- the Route Handler always
