@@ -26,7 +26,7 @@ interface NavItem {
   label: string;
   icon: LucideIcon;
   /** null means "anyone signed in" -- matches the permission-gating convention already used
-   * throughout this app (see AGENTS.md's acting-identity notes). */
+   * throughout this app (see ENGINEERING.md's acting-identity notes). */
   permission: string | null;
 }
 

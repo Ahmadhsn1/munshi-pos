@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createAdminClient } from "./helpers";
 
 // Formalizes what was previously only checked ad hoc via the Supabase security advisor
-// (get_advisors) -- a migration that creates a tenant-scoped table and forgets
+// (Security Advisor) -- a migration that creates a tenant-scoped table and forgets
 // `ENABLE ROW LEVEL SECURITY` should fail a test, not wait for a manual advisor run.
 const TENANT_SCOPED_TABLES = [
   "tenants",
@@ -37,6 +37,13 @@ const TENANT_SCOPED_TABLES = [
   "expense_categories",
   "expenses",
   "audit_log",
+  // Phase 8 (platform admin panel). notification_log has no policy for `authenticated`, same
+  // reasoning as audit_log -- it's the admin's own send trail. in_app_notifications does have a
+  // client SELECT policy (a tenant reads its own inbox) but is still RLS-enabled, so both belong
+  // in this list regardless. See 20260801100004_notification_log.sql /
+  // 20260801100005_in_app_notifications.sql.
+  "notification_log",
+  "in_app_notifications",
 ];
 
 describe("row level security is enabled on every tenant-scoped table", () => {

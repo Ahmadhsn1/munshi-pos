@@ -23,19 +23,25 @@ export default async function DashboardLayout({ children }: { children: React.Re
     redirect("/login");
   }
 
-  // Only fetched/shown for a real owner/manager session, never during a counter/cashier session --
-  // subscription/billing status is a back-office concern a cashier ringing up sales has no need to
-  // see, matching the same reasoning as hiding Staff/Purchases/etc. from them in the nav below.
-  let trialEndsAt: string | null = null;
-  if (!context.isCounterSession) {
-    const supabase = await createClient();
-    const { data: tenant } = await supabase
-      .from("tenants")
-      .select("trial_ends_at")
-      .eq("id", context.tenantId)
-      .single();
-    trialEndsAt = tenant?.trial_ends_at ?? null;
+  // Fetched unconditionally (unlike the trial banner's display below) because a suspended shop
+  // must be locked out for cashiers too, not just owners/managers -- a genuinely suspended tenant
+  // shouldn't let a cashier keep ringing up sales just because they're PIN'd in at the counter.
+  const supabase = await createClient();
+  const { data: tenant } = await supabase
+    .from("tenants")
+    .select("trial_ends_at, subscription_status")
+    .eq("id", context.tenantId)
+    .single();
+
+  if (tenant?.subscription_status === "suspended") {
+    redirect("/account-suspended");
   }
+
+  // Subscription/billing status is a back-office concern a cashier ringing up sales has no need to
+  // see, matching the same reasoning as hiding Staff/Purchases/etc. from them in the nav below --
+  // so the trial-countdown banner itself stays owner/manager-only even though the query above (and
+  // the suspension redirect it feeds) now always runs.
+  const trialEndsAt = !context.isCounterSession ? (tenant?.trial_ends_at ?? null) : null;
 
   return (
     <div className="flex min-h-screen flex-col">

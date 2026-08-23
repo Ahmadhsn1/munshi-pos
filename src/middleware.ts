@@ -5,6 +5,15 @@ import { COUNTER_COOKIE_NAME } from "@/lib/counter-cookie";
 const PUBLIC_PATHS = ["/login", "/signup"];
 
 export async function middleware(request: NextRequest) {
+  // Platform-admin routes are a fully separate identity space (see src/lib/platform-admin.ts) with
+  // their own auth check in src/app/admin/layout.tsx -- bypass the tenant-login logic below
+  // entirely rather than trying to make PUBLIC_PATHS/redirect rules cover both identity spaces at
+  // once. Also skips the otherwise-unnecessary auth.getUser() round trip below for every /admin
+  // request, since it's re-checked in the layout anyway.
+  if (request.nextUrl.pathname.startsWith("/admin")) {
+    return NextResponse.next({ request });
+  }
+
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(

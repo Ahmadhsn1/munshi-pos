@@ -29,7 +29,9 @@ export default function LoginPage() {
       return;
     }
 
-    router.push("/dashboard");
+    // "/" decides where you actually belong (platform admin vs a specific tenant) -- this one
+    // form is shared by both, see src/app/page.tsx.
+    router.push("/");
     router.refresh();
   }
 

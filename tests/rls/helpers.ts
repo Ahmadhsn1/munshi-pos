@@ -135,6 +135,8 @@ export async function cleanupUser(admin: SupabaseClient, userId: string) {
 // tenant delete again. stock_ledger leads because it references products, sales, sale_returns,
 // purchases and purchase_returns all at once.
 const TENANT_CHILD_TABLES_IN_DELETE_ORDER = [
+  "notification_log",
+  "in_app_notifications",
   "audit_log",
   "expenses",
   "expense_categories",

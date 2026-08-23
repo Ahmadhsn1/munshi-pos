@@ -50,6 +50,8 @@ async function deleteUserWithRetry(userId, attempts = 4) {
 // `categories` moved after products (products references both) -- kept identical on purpose so
 // this script and the test helper can never silently drift apart on which tables exist.
 const CHILD_TABLES_IN_ORDER = [
+  "notification_log",
+  "in_app_notifications",
   "audit_log",
   "expenses",
   "expense_categories",

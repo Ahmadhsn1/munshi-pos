@@ -399,3 +399,27 @@ export const reportRangeSchema = z
   });
 
 export type ReportRangeInput = z.infer<typeof reportRangeSchema>;
+
+// Platform admin panel -- see supabase/migrations/20260801100001_tenant_subscription_status.sql
+// for the vocabulary this mirrors.
+export const platformAdminTenantStatusSchema = z.object({
+  status: z.enum(["trialing", "active", "past_due", "suspended", "cancelled"]),
+  reason: z.string().trim().max(300).optional().or(z.literal("")),
+});
+
+export type PlatformAdminTenantStatusInput = z.infer<typeof platformAdminTenantStatusSchema>;
+
+export const platformAdminTenantTrialSchema = z.object({
+  trialEndsAt: z.string().refine((v) => !Number.isNaN(Date.parse(v)), "Invalid date"),
+});
+
+export type PlatformAdminTenantTrialInput = z.infer<typeof platformAdminTenantTrialSchema>;
+
+export const platformAdminNotifySchema = z.object({
+  channels: z.array(z.enum(["in_app", "email", "whatsapp"])).min(1, "Pick at least one channel"),
+  templateKey: z.enum(["subscription_suspended", "subscription_reactivated", "trial_ending_reminder", "custom"]),
+  customSubject: z.string().trim().max(150).optional(),
+  customBody: z.string().trim().max(2000).optional(),
+});
+
+export type PlatformAdminNotifyInput = z.infer<typeof platformAdminNotifySchema>;
