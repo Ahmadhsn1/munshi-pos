@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { cookies } from "next/headers";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
@@ -41,7 +42,7 @@ async function loadPermissionsForRole(
  * precisely the bug described there: a cashier standing at an owner's logged-in device would be
  * authorized with the OWNER's permission set.
  */
-export async function getSessionUserContext(): Promise<UserContext | null> {
+export const getSessionUserContext = cache(async (): Promise<UserContext | null> => {
   const supabase = await createClient();
 
   const {
@@ -74,7 +75,7 @@ export async function getSessionUserContext(): Promise<UserContext | null> {
     roleName: role.name,
     permissions,
   };
-}
+});
 
 export interface ActingUserContext extends UserContext {
   /** Who the real Supabase Auth session belongs to -- an owner/manager, possibly staying logged
@@ -94,7 +95,7 @@ export interface ActingUserContext extends UserContext {
  * SECURITY HISTORY -- why this is the default rather than a POS-only helper. Originally only the
  * POS routes resolved the acting identity and every back-office page/route authorized against the
  * raw session instead. Because a counter-login is layered on top of an owner's still-live session
- * (see AGENTS.md), that meant a cashier PIN'd in at the counter could simply navigate to any
+ * (see ENGINEERING.md), that meant a cashier PIN'd in at the counter could simply navigate to any
  * back-office screen -- Staff, Purchases, Inventory -- and be authorized as the OWNER: creating
  * staff accounts, adjusting stock, paying suppliers and reading every cost price. The role model
  * only actually held on the one screen the cashier was supposed to be restricted to. Resolving the
@@ -108,7 +109,7 @@ export interface ActingUserContext extends UserContext {
  * logs into the same shared device later. A missing/invalid/stale/deactivated-cashier cookie
  * falls back to the real session's own identity (the owner/manager ringing up a sale directly).
  */
-export async function getActingUserContext(): Promise<ActingUserContext | null> {
+export const getActingUserContext = cache(async (): Promise<ActingUserContext | null> => {
   const sessionContext = await getSessionUserContext();
   if (!sessionContext) return null;
 
@@ -158,4 +159,4 @@ export async function getActingUserContext(): Promise<ActingUserContext | null> 
     sessionRoleKey: sessionContext.roleKey,
     isCounterSession: true,
   };
-}
+});

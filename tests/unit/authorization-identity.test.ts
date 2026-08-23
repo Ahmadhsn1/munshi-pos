@@ -6,7 +6,7 @@ import { join, relative, sep } from "node:path";
  * Guards the fix for a privilege-escalation bug found during Phase 6.
  *
  * A cashier never gets their own Supabase Auth session -- PIN counter-login layers a signed cookie
- * on top of an owner/manager's still-live session (see AGENTS.md). Originally only the POS routes
+ * on top of an owner/manager's still-live session (see ENGINEERING.md). Originally only the POS routes
  * resolved that acting identity; every back-office page and route authorized against the raw
  * session instead. The consequence was that a cashier PIN'd in at the counter could navigate to
  * Staff, Purchases or Inventory and be authorized as the OWNER -- creating staff accounts,

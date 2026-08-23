@@ -29,27 +29,35 @@ export default async function CustomersPage() {
   }
 
   const supabase = await createClient();
-  const { data: customers } = await supabase
-    .from("customers")
-    .select("id, name, phone, credit_limit_paisa, price_tier, is_blacklisted, is_active")
-    .order("name");
 
   // Net khata balance per customer -- same debits-minus-credits definition as the dashboard's
   // grand total and lib/khata.ts#computeKhataBalance, just grouped by customer instead of summed
   // tenant-wide. Deliberately NOT the /customers/aging page's FIFO allocation: this list only needs
   // "how much, if any, does each customer currently owe" for an at-a-glance pill, not which
   // specific invoice that balance traces back to.
-  const { data: sales } = await supabase.from("sales").select("id, customer_id").not("customer_id", "is", null);
+  //
+  // Fetched in 3 dependency-ordered rounds instead of 6 flat sequential awaits -- each round only
+  // waits on what the next one actually needs (saleIds, then returnIds), and everything independent
+  // within a round runs concurrently.
+  const [{ data: customers }, { data: sales }, { data: customerPayments }] = await Promise.all([
+    supabase
+      .from("customers")
+      .select("id, name, phone, credit_limit_paisa, price_tier, is_blacklisted, is_active")
+      .order("name"),
+    supabase.from("sales").select("id, customer_id").not("customer_id", "is", null),
+    supabase.from("customer_payments").select("customer_id, amount_paisa"),
+  ]);
   const customerIdBySaleId = new Map((sales ?? []).map((s) => [s.id, s.customer_id]));
   const saleIds = (sales ?? []).map((s) => s.id);
 
-  const { data: khataSalePayments } =
+  const [{ data: khataSalePayments }, { data: saleReturns }] = await Promise.all([
     saleIds.length > 0
-      ? await supabase.from("sale_payments").select("sale_id, amount_paisa").eq("payment_mode", "khata").in("sale_id", saleIds)
-      : { data: [] };
-
-  const { data: saleReturns } =
-    saleIds.length > 0 ? await supabase.from("sale_returns").select("id, sale_id").in("sale_id", saleIds) : { data: [] };
+      ? supabase.from("sale_payments").select("sale_id, amount_paisa").eq("payment_mode", "khata").in("sale_id", saleIds)
+      : Promise.resolve({ data: [] }),
+    saleIds.length > 0
+      ? supabase.from("sale_returns").select("id, sale_id").in("sale_id", saleIds)
+      : Promise.resolve({ data: [] }),
+  ]);
   const saleIdByReturnId = new Map((saleReturns ?? []).map((r) => [r.id, r.sale_id]));
   const returnIds = (saleReturns ?? []).map((r) => r.id);
 
@@ -57,8 +65,6 @@ export default async function CustomersPage() {
     returnIds.length > 0
       ? await supabase.from("sale_return_payments").select("sale_return_id, amount_paisa").eq("payment_mode", "khata").in("sale_return_id", returnIds)
       : { data: [] };
-
-  const { data: customerPayments } = await supabase.from("customer_payments").select("customer_id, amount_paisa");
 
   const balanceByCustomer = new Map<string, number>();
   for (const p of khataSalePayments ?? []) {

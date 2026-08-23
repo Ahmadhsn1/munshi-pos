@@ -27,19 +27,16 @@ export default async function PosPage() {
 
   const admin = createAdminClient();
 
-  const { data: shift } = await admin
-    .from("shifts")
-    .select("id, opening_cash_paisa, opened_at")
-    .eq("tenant_id", context.tenantId)
-    .eq("cashier_user_id", context.userId)
-    .eq("status", "open")
-    .maybeSingle();
-
-  const { data: tenant } = await admin
-    .from("tenants")
-    .select("name")
-    .eq("id", context.tenantId)
-    .single();
+  const [{ data: shift }, { data: tenant }] = await Promise.all([
+    admin
+      .from("shifts")
+      .select("id, opening_cash_paisa, opened_at")
+      .eq("tenant_id", context.tenantId)
+      .eq("cashier_user_id", context.userId)
+      .eq("status", "open")
+      .maybeSingle(),
+    admin.from("tenants").select("name").eq("id", context.tenantId).single(),
+  ]);
 
   if (!shift) {
     return <ShiftOpenGate />;
